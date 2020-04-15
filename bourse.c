@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <time.h>
 #define NON_TROUVE -1
+#define PAS_DE_SEUIL_DECLENCHEMNT 999
 #define TAILLE_CODE_ISIN 20
 #define TAILLE_NOM_SOCIETE 100
 #define TAILLE_SYMBOLE 20
@@ -21,6 +22,7 @@ struct struct_action
     char symbole[TAILLE_SYMBOLE];
     float prix_achat_unit;
     int quantite;
+    float seuil_declenchement; // en pourcentage; 999 => pas de seuil de déclement
 };
 struct operation
 {
@@ -34,10 +36,10 @@ struct operation
 /*---------- Déclaration préliminaires ----------*/
 void MenuPortefeuille();
 void chargement();
-void Achat();
-void Vente();
+void MenuOperation();
 void OrdreAuMarche();
 void OrdreACoursLimite();
+void AlerteSeuilDeclenchement();
 void affichage();
 void GetDateDuJour();
 void GetHeureCourante(char *dest);
@@ -46,6 +48,8 @@ int RechercheAction(char *mot_cle, struct struct_action *tableau, char *nom_tab)
 void conv_maj(char *ch);
 void MettreOperationEnAttente(struct struct_action action, float prix, int quantite, char type_operation);
 void ChargerOperationEnAttente();
+void AffichageCoursDeBourse();
+float CaculNouveauPrix(float prix_1, int quantite_1, float prix_2, int quantite_2);
 
 /* Déclaration des variables globales */
 int nb_actions_portefeuille = 0;
@@ -69,6 +73,9 @@ int main()
     // Chargement des opérations en attente
     ChargerOperationEnAttente();
 
+    // Verification les seuils de declenchement
+    AlerteSeuilDeclenchement();
+
     // Récupérer la date du jour
     GetDateDuJour();
     printf("La date du jour est : %s\n", date_du_jour);
@@ -81,9 +88,8 @@ int main()
     {
         printf("================ MENU PRINCIPAL ================\n");
         printf("-1- Gestion de portefeuille\n");
-        printf("-2- Achat d'action\n");
-        printf("-3- Vente d'action\n");
-        printf("-4- Vente à découvert\n");
+        printf("-2- Menu des operations\n");
+        printf("-3- Affichage du cours de bourse\n");
         printf("-0- Quitter l'application\n");
         printf("Choix : ");
         scanf("%d", &choix);
@@ -95,9 +101,10 @@ int main()
                 MenuPortefeuille();
                 break; 
             case 2:
-                Achat();
+                MenuOperation();
             case 3:
-                Vente();  
+                AffichageCoursDeBourse();
+                break;
             case 0:
                 printf("Au revoir !\n");
                 break;
@@ -119,7 +126,6 @@ void MenuPortefeuille()
         printf("-1- Affichage\n");
         printf("-2- Sauvegarde\n");
         printf("-3- Clôture\n");
-        printf("-4- Exporter le portefeuille en CSV\n");
         printf("-0- Revenir au menu principal\n");
         printf("Choix : ");
         scanf("%d", &choix);
@@ -148,13 +154,14 @@ void chargement() // ask for person name not the file name
     int retour;
 
     printf("Nom du propriétaire de portefeuille : ");
-    scanf("%s", NomProprietaireInput);
-    strcpy(NomProprietaire, NomProprietaireInput); // Enregistrer le nom du propriétaire de la session active
+    scanf("%s", NomProprietaire);
+    conv_maj(NomProprietaire);
     printf("Type de portefeille : ");
     scanf("%s", PortefeuilleType);
+    conv_maj(PortefeuilleType);
 
     // Nom du fichier à charger à partir de NomProprietaire et PortefeuilleType (format : NomProprietaireInput_PortefeuilleType.csv)
-    strcpy(NomFichier, NomProprietaireInput);
+    strcpy(NomFichier, NomProprietaire);
     strcat(NomFichier, "_");
     strcat(NomFichier, PortefeuilleType);
     strcat(NomFichier, ".csv");
@@ -165,7 +172,7 @@ void chargement() // ask for person name not the file name
     f1 = fopen(NomFichier, "r");
     while(!feof(f1))
     {
-        retour = fscanf(f1, "%[^,],%[^,],%[^,],%f,%d", action.code_isin, action.symbole,action.nom_societe, &action.prix_achat_unit, &action.quantite);
+        retour = fscanf(f1, "%[^,],%[^,],%[^,],%f,%d,%f\n", action.code_isin, action.symbole,action.nom_societe, &action.prix_achat_unit, &action.quantite, &action.seuil_declenchement);
         if(retour != EOF)
         {
             portefeuille[i++] = action;
@@ -194,24 +201,23 @@ void affichage()
             action = portefeuille[i];
             if(action.quantite > 0)
             {
-                printf("%s,%s,%s,%f,%d", action.code_isin, action.symbole, action.nom_societe, action.prix_achat_unit, action.quantite);
+                printf("%s,%s,%s,%f,%d,%f", action.code_isin, action.symbole, action.nom_societe, action.prix_achat_unit, action.quantite, action.seuil_declenchement);
                 printf("\n");
             }
         }
         printf("\n");
     }
 }
-/*---------- Achat ----------*/
-void Achat()
+/*---------- MENU OPERATION ----------*/
+void MenuOperation()
 {
     int choix = -1;
 
     while(choix != 0)
     {
-        printf("================ MENU ACHAT ================\n");
+        printf("================ MENU OPERATION ================\n");
         printf("-1- Ordre au marche\n");
         printf("-2- Ordre à cours limite\n");
-        printf("-3- Ordre avec seuil de declenchement\n");
         printf("-0- Revenir au menu principal\n");
         printf("Choix : ");
         scanf("%d", &choix);
@@ -233,18 +239,15 @@ void Achat()
         } // Fin de Switch
     } // Fin de Whille
 }
-/*---------- Vente ----------*/
-void Vente()
-{
-
-}
 /*---------- Ordre au marche ----------*/
 void OrdreAuMarche()
 {
     char type_operation;
     char symbole_input[TAILLE_CODE_ISIN];
     char heure_courante[TAILLE_HEURE];
+    char ConfirmationVente, ConfirmationSeuilDeclenchement;
     int quantite_input, index_action_recherche_cours_bourse, index_action_recherche_portefeuille;
+    float seuil_declenchement_input;
     struct struct_action action;
 
     printf("================ ORDRE AU MARCHE ================\n");
@@ -292,15 +295,42 @@ void OrdreAuMarche()
             index_action_recherche_portefeuille = RechercheAction(symbole_input, portefeuille, "portefeuille");
             if (index_action_recherche_portefeuille == NON_TROUVE)
             {
+                // Saisie d'un seuil de déclenchement
+                printf("Achat de %d actions avec succès.\n", quantite_input);
+                while (ConfirmationSeuilDeclenchement != 'O' && ConfirmationSeuilDeclenchement != 'N')
+                {
+                    printf("Voulez-vous définir un seuil de déclenchement : (O pour Oui, N pour Non) : ");
+                    while (getchar() != '\n');
+                    scanf("%c", &ConfirmationSeuilDeclenchement);
+                    ConfirmationSeuilDeclenchement = toupper(ConfirmationSeuilDeclenchement);
+                    if(ConfirmationSeuilDeclenchement == 'O')
+                    {
+                        printf("Saisissez le seuil de declenchement souhiate (Ex : 12.4 pour 12.4%%) : ");
+                        scanf("%f", &seuil_declenchement_input);
+                        action.seuil_declenchement = seuil_declenchement_input;
+                    }
+                    else
+                    {
+                        action.seuil_declenchement = PAS_DE_SEUIL_DECLENCHEMNT;
+                    }
+                    
+                    if(ConfirmationSeuilDeclenchement != 'O' && ConfirmationSeuilDeclenchement != 'N')
+                    {
+                        printf("La réponse attendue est : O pour Oui, N pour Non\n");
+                    }
+                }
+
                 action.quantite = quantite_input;
                 portefeuille[nb_actions_portefeuille++] = action;
                 cours_bourse[index_action_recherche_cours_bourse].quantite -= quantite_input;
-                printf("Achat de %d actions avec succès.\n", quantite_input);
                 affichage();
             }
             else
             {
                 action = portefeuille[index_action_recherche_portefeuille];
+                // Calculer le nouveau prix à partir du prix d'achat venant du portefeuille, de la quantité dans la portefeuille et du prix du marché, de la quantité achetée
+                // Nouveau_prix = (prix_portefeuill*quantite_portfeuille + prix_marche*quantite_achetee) / (quantite_portfeuille + quantite_achetee)
+                action.prix_achat_unit = CaculNouveauPrix(action.prix_achat_unit, action.quantite, cours_bourse[index_action_recherche_cours_bourse].prix_achat_unit, quantite_input);
                 action.quantite += quantite_input;
                 portefeuille[index_action_recherche_portefeuille] = action;
                 cours_bourse[index_action_recherche_cours_bourse].quantite -= quantite_input;
@@ -335,6 +365,25 @@ void OrdreAuMarche()
             else
             {
                 // Si le portefeuill ne contient pas suffisamment d'actions à vendre, la quantié à vendre sera enlevée du portefeuille, l'action sera supprimée du portefeuille et cette quantité sera ajoutée dans le cours de bourse
+                while(ConfirmationVente != 'O' && ConfirmationVente != 'N')
+                {
+                    printf("Vous disposez de quantité insuffisante, souhaitez-vous continuer la vente ? (O pour Oui, N pour Non) : "); // Si oui, la vente porte sur la quantité disponible. Si non, on ne fais rien.
+                    while (getchar() != '\n');
+                    scanf("%c", &ConfirmationVente);
+                    ConfirmationVente = toupper(ConfirmationVente);
+                    if(ConfirmationVente != 'O' && ConfirmationVente != 'N')
+                    {
+                        printf("La réponse attendue est : O pour Oui, N pour Non\n");
+                    }
+                    else
+                    {
+                        if (ConfirmationVente == 'N')
+                        {
+                            printf("Opération abandonnée...\n");
+                            return; // Annuler la vente et revenir au menu précédent
+                        }
+                    }
+                }
                 action = portefeuille[index_action_recherche_portefeuille];
                 cours_bourse[index_action_recherche_cours_bourse].quantite += action.quantite;
                 printf("Vente de %d actions avec succès.\n", action.quantite);
@@ -354,7 +403,10 @@ void OrdreACoursLimite()
     char type_operation;
     char symbole_input[TAILLE_CODE_ISIN];
     char heure_courante[TAILLE_HEURE];
+    char ConfirmationVente; // O pour Oui, N pour Non
+    char ConfirmationSeuilDeclenchement; // O pour Oui, N pour Non
     float prix_input;
+    float seuil_declenchement_input;
     int quantite_input, index_action_recherche_cours_bourse, index_action_recherche_portefeuille;
     struct struct_action action;
 
@@ -408,6 +460,30 @@ void OrdreACoursLimite()
                 // Quand le prix correspond au prix du marché, l'opération sera exécutée
                 if (index_action_recherche_portefeuille == NON_TROUVE)
                 {
+                    // Saisie d'un seuil de déclenchement
+                    printf("Achat de %d actions avec succès.\n", quantite_input);
+                    while (ConfirmationSeuilDeclenchement != 'O' && ConfirmationSeuilDeclenchement != 'N')
+                    {
+                        printf("Voulez-vous définir un seuil de déclenchement : (O pour Oui, N pour Non) : ");
+                        while (getchar() != '\n');
+                        scanf("%c", &ConfirmationSeuilDeclenchement);
+                        ConfirmationSeuilDeclenchement = toupper(ConfirmationSeuilDeclenchement);
+                        if(ConfirmationSeuilDeclenchement == 'O')
+                        {
+                            printf("Saisissez le seuil de declenchement souhiate (Ex : 12.4 pour 12.4%%) : ");
+                            scanf("%f", &seuil_declenchement_input);
+                            action.seuil_declenchement = seuil_declenchement_input;
+                        }
+                        else
+                        {
+                            action.seuil_declenchement = PAS_DE_SEUIL_DECLENCHEMNT;
+                        }
+                        
+                        if(ConfirmationSeuilDeclenchement != 'O' && ConfirmationSeuilDeclenchement != 'N')
+                        {
+                            printf("La réponse attendue est : O pour Oui, N pour Non\n");
+                        }
+                    }
                     action.quantite = quantite_input;
                     portefeuille[nb_actions_portefeuille++] = action;
                     cours_bourse[index_action_recherche_cours_bourse].quantite -= quantite_input;
@@ -417,6 +493,9 @@ void OrdreACoursLimite()
                 else
                 {
                     action = portefeuille[index_action_recherche_portefeuille];
+                    // Calculer le nouveau prix à partir du prix d'achat venant du portefeuille, de la quantité dans la portefeuille et du prix du marché, de la quantité achetée
+                    // Nouveau_prix = (prix_portefeuill*quantite_portfeuille + prix_marche*quantite_achetee) / (quantite_portfeuille + quantite_achetee)
+                     action.prix_achat_unit = CaculNouveauPrix(action.prix_achat_unit, action.quantite, cours_bourse[index_action_recherche_cours_bourse].prix_achat_unit, quantite_input);
                     action.quantite += quantite_input;
                     portefeuille[index_action_recherche_portefeuille] = action;
                     cours_bourse[index_action_recherche_cours_bourse].quantite -= quantite_input;
@@ -428,6 +507,7 @@ void OrdreACoursLimite()
             {
                 // Si le prix ne correspond pas au prix du marché, il faut mettre cette opération en attente
                 MettreOperationEnAttente(action, prix_input, quantite_input, type_operation);
+                printf("Le prix actuel ne correspond pas au prix souhaite, l'operation est mise en attente.\n");
             }
         }
         else
@@ -444,7 +524,7 @@ void OrdreACoursLimite()
         }
         else
         {
-            if (prix_input == portefeuille[index_action_recherche_cours_bourse].prix_achat_unit)
+            if (prix_input == cours_bourse[index_action_recherche_cours_bourse].prix_achat_unit)
             {
                 // Quand le prix correspond au prix du marché, l'opération sera exécutée
                 if (portefeuille[index_action_recherche_portefeuille].quantite >= quantite_input)
@@ -460,6 +540,25 @@ void OrdreACoursLimite()
                 else
                 {
                     // Si le portefeuill ne contient pas suffisamment d'actions à vendre, la quantié à vendre sera enlevée du portefeuille, l'action sera supprimée du portefeuille et cette quantité sera ajoutée dans le cours de bourse
+                    while(ConfirmationVente != 'O' && ConfirmationVente != 'N')
+                    {
+                        printf("Vous disposez de quantité insuffisante, souhaitez-vous continuer la vente ? (O pour Oui, N pour Non) : "); // Si oui, la vente porte sur la quantité disponible. Si non, on ne fais rien.
+                        while (getchar() != '\n');
+                        scanf("%c", &ConfirmationVente);
+                        ConfirmationVente = toupper(ConfirmationVente);
+                        if(ConfirmationVente != 'O' && ConfirmationVente != 'N')
+                        {
+                            printf("La réponse attendue est : O pour Oui, N pour Non\n");
+                        }
+                        else
+                        {
+                            if (ConfirmationVente == 'N')
+                            {
+                                printf("Opération abandonnée...\n");
+                                return; // Annuler la vente et revenir au menu précédent
+                            }
+                        }
+                    }
                     action = portefeuille[index_action_recherche_portefeuille];
                     cours_bourse[index_action_recherche_cours_bourse].quantite += action.quantite;
                     printf("Vente de %d actions avec succès.\n", action.quantite);
@@ -472,6 +571,7 @@ void OrdreACoursLimite()
             {
                 // Si le prix ne correspond pas au prix du marché, il faut mettre cette opération en attente
                 MettreOperationEnAttente(action, prix_input, quantite_input, type_operation);
+                printf("Le prix actuel ne correspond pas au prix souhaite, l'operation est mise en attente.\n");
             }
         }
     }
@@ -497,6 +597,7 @@ void GetCoursDeBourseFromCSV()
 {
     int j;
     struct struct_action action;
+    char bidon[100]; // caractere pour consommer le retour à la ligne
     FILE *f1;
     int retour;
 
@@ -504,21 +605,27 @@ void GetCoursDeBourseFromCSV()
     f1 = fopen(COURS_DE_BOURSE_FILE_NAME, "r");
     while(!feof(f1))
     {
-        retour = fscanf(f1, "%[^,],%[^,],%[^,],%d,%f\n", action.code_isin, action.symbole, action.nom_societe, &action.quantite, &action.prix_achat_unit);
+        retour = fscanf(f1, "%[^,],%[^,],%[^,],%d,%f%[^\n]\n", action.code_isin, action.symbole, action.nom_societe, &action.quantite, &action.prix_achat_unit, bidon);
         if(retour != EOF)
         {
             cours_bourse[nb_actions_cours_bourse++] = action;
         }
     }
-    fclose(f1);
+    fclose(f1); 
+}
+/*---------- Afficher le cours de bourse ----------*/
+void AffichageCoursDeBourse()
+{
+    int i;
+    struct struct_action action;
 
-    printf("%d indices chargée(s) !\n", nb_actions_cours_bourse); // une ligne = une action (vocab finance)
-
-    for(j = 0; j < nb_actions_cours_bourse; j++)
+    for(i = 0; i < nb_actions_cours_bourse; i++)
     { // boucle affichage
-        action = cours_bourse[j];
+        action = cours_bourse[i];
         printf("%s,%s,%s,%d,%f \n", action.code_isin, action.symbole, action.nom_societe, action.quantite, action.prix_achat_unit);
     }
+
+    printf("%d indices chargée(s) !\n", nb_actions_cours_bourse);
 }
 /*---------- Recherche d'une action dans le cours de bourse ----------*/
 int RechercheAction(char *mot_cle, struct struct_action *tableau, char *nom_tab)
@@ -557,7 +664,7 @@ void conv_maj(char *ch)
         ch[i] = toupper(ch[i]);
     }
 }
-/*---------- Mettre une opération en attente ----------*/
+/*---------- Charger les opérations en attente ----------*/
 void ChargerOperationEnAttente()
 {
     int i;
@@ -611,4 +718,133 @@ void MettreOperationEnAttente(struct struct_action action, float prix, int quant
         fprintf(f1, "%s,%s,%s,%s,%s,%f,%d,%c\n", operations_en_attente[i].date, operations_en_attente[i].heure, operations_en_attente[i].proprietaire_portefeuille, operations_en_attente[i].action.symbole, operations_en_attente[i].action.code_isin, operations_en_attente[i].action.prix_achat_unit, operations_en_attente[i].action.quantite, operations_en_attente[i].type_operation);
     }
     fclose(f1);
+}
+/*---------- Calculer la nouvelle valeur d'action dans le portefeuille (moyenne pondérée) ----------*/
+float CaculNouveauPrix(float prix_1, int quantite_1, float prix_2, int quantite_2)
+{
+    return (prix_1*quantite_1 + prix_2*quantite_2)/(quantite_1+quantite_2);
+}
+/*---------- Alerte Seuil Déclenchement ----------*/
+void AlerteSeuilDeclenchement()
+{
+    int i, index_action_cours_bourse, quantite_input;
+    float prix_declenchement_superieur, prix_declenchement_inferieur;
+    char type_operation, ConfirmationVente;
+    char heure_courante[TAILLE_HEURE];
+    struct struct_action action_portefeuille, action_cours_bourse;
+
+    for (i = 0; i < nb_actions_portefeuille; i++)
+    {
+        // Notre action pour un tour de boucle
+        action_portefeuille = portefeuille[i];
+
+        // La même action venant du cours de bourse
+        index_action_cours_bourse = RechercheAction(action_portefeuille.symbole, cours_bourse, "cours_bourse");
+        action_cours_bourse = cours_bourse[index_action_cours_bourse];
+
+        // Les prix de declenchement
+        prix_declenchement_superieur = action_portefeuille.prix_achat_unit + (action_portefeuille.prix_achat_unit * (action_portefeuille.seuil_declenchement / 100));
+        prix_declenchement_inferieur = action_portefeuille.prix_achat_unit - (action_portefeuille.prix_achat_unit * (action_portefeuille.seuil_declenchement / 100));
+
+        if (prix_declenchement_superieur == action_cours_bourse.prix_achat_unit || prix_declenchement_inferieur == action_cours_bourse.prix_achat_unit)
+        {
+            // Le cas où le seuil de déclenchement est atteint
+            printf("Le seuil de déclenchement pour l'action %s est atteint\n", action_cours_bourse.symbole);
+            printf("Prix dans le portefeuille : %f €\n", action_portefeuille.prix_achat_unit);
+            printf("Prix du marche            : %f €\n", action_cours_bourse.prix_achat_unit);
+            while (type_operation != 'A' && type_operation != 'V')
+            {
+                printf("Opération (A pour Achat, V pour Vente): ");
+                while (getchar() != '\n');
+                scanf("%c", &type_operation);
+                type_operation = toupper(type_operation);
+                if (type_operation != 'A' && type_operation != 'V')
+                {
+                    printf("La réponse attendue est : A pour Achat ou V pour Vente\n");
+                }
+            }
+
+            if (type_operation == 'A')
+            {
+                printf("Opération choisie : Achat\n");
+                printf("Quantité disponbile : %d\n", action_cours_bourse.quantite);
+            }
+            else
+            {
+                printf("Opération choisie : Vente\n");
+                printf("Quantité disponbile : %d\n", action_portefeuille.quantite);
+            }
+
+            printf("Veuillez saisir la quantité : ");
+            scanf("%d", &quantite_input);
+
+            if (type_operation == 'A')
+            { // ACHAT
+                if (quantite_input <= action_cours_bourse.quantite)
+                {
+                    // Calculer le nouveau prix à partir du prix d'achat venant du portefeuille, de la quantité dans la portefeuille et du prix du marché, de la quantité achetée
+                    // Nouveau_prix = (prix_portefeuill*quantite_portfeuille + prix_marche*quantite_achetee) / (quantite_portfeuille + quantite_achetee)
+                    action_portefeuille.prix_achat_unit = CaculNouveauPrix(action_portefeuille.prix_achat_unit, action_portefeuille.quantite, action_cours_bourse.prix_achat_unit, quantite_input);
+                    action_portefeuille.quantite += quantite_input;
+                    portefeuille[i] = action_portefeuille;
+                    action_cours_bourse.quantite -= quantite_input;
+                    cours_bourse[index_action_cours_bourse] = action_cours_bourse;
+                    printf("Achat de %d actions avec succès.\n", quantite_input);
+                    affichage();
+                }
+                else
+                {
+                    printf("Quantité disponible insuffisante !\n");
+                }
+            }
+            else
+            { // VENTE
+                if (action_portefeuille.quantite >= quantite_input)
+                {
+                    // Si le portefeuill contient suffisamment d'actions à vendre, la quantié à vendre sera enlevée du portefeuille et ajoutée dans le cours de bourse
+                    action_portefeuille.quantite -= quantite_input;
+                    portefeuille[i] = action_portefeuille;
+                    action_cours_bourse.quantite += quantite_input;
+                    cours_bourse[index_action_cours_bourse] = action_cours_bourse;
+                    printf("Vente de %d actions avec succès.\n", quantite_input);
+                    affichage();
+                }
+                else
+                {
+                    // Si le portefeuill ne contient pas suffisamment d'actions à vendre, la quantié à vendre sera enlevée du portefeuille, l'action sera supprimée du portefeuille et cette quantité sera ajoutée dans le cours de bourse
+                    while (ConfirmationVente != 'O' && ConfirmationVente != 'N')
+                    {
+                        printf("Vous disposez de quantité insuffisante, souhaitez-vous continuer la vente ? (O pour Oui, N pour Non) : "); // Si oui, la vente porte sur la quantité disponible. Si non, on ne fais rien.
+                        while (getchar() != '\n')
+                            ;
+                        scanf("%c", &ConfirmationVente);
+                        ConfirmationVente = toupper(ConfirmationVente);
+                        if (ConfirmationVente != 'O' && ConfirmationVente != 'N')
+                        {
+                            printf("La réponse attendue est : O pour Oui, N pour Non\n");
+                        }
+                        else
+                        {
+                            if (ConfirmationVente == 'N')
+                            {
+                                printf("Opération abandonnée...\n");
+                                return; // Annuler la vente et revenir au menu précédent
+                            }
+                            else
+                            {
+                                action_cours_bourse.quantite += action_portefeuille.quantite;
+                                printf("Vente de %d actions avec succès.\n", action_portefeuille.quantite);
+                                action_portefeuille.quantite = 0;
+                                portefeuille[i] = action_portefeuille;
+                                cours_bourse[index_action_cours_bourse] = action_cours_bourse;
+                                affichage();
+                            }
+                        }
+                    }
+                }
+            }
+            GetHeureCourante(heure_courante);
+            printf("Date de l'opération : %s %s\n", date_du_jour, heure_courante);
+        }
+    }
 }
