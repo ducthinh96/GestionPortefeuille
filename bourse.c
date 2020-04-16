@@ -73,12 +73,14 @@ int main()
     // Chargement des opérations en attente
     ChargerOperationEnAttente();
 
+    // Récupérer la date du jour
+    GetDateDuJour();
+
     // Verification les seuils de declenchement
     AlerteSeuilDeclenchement();
 
-    // Récupérer la date du jour
-    GetDateDuJour();
-    printf("La date du jour est : %s\n", date_du_jour);
+    // Afficher la date du jour
+    printf("La date du jour est                   : %s\n", date_du_jour);
 
     // Init choix
     int choix = -1;
@@ -102,6 +104,7 @@ int main()
                 break; 
             case 2:
                 MenuOperation();
+                break;
             case 3:
                 AffichageCoursDeBourse();
                 break;
@@ -156,7 +159,7 @@ void chargement() // ask for person name not the file name
     printf("Nom du propriétaire de portefeuille : ");
     scanf("%s", NomProprietaire);
     conv_maj(NomProprietaire);
-    printf("Type de portefeille : ");
+    printf("Type de portefeille                 : ");
     scanf("%s", PortefeuilleType);
     conv_maj(PortefeuilleType);
 
@@ -196,16 +199,25 @@ void affichage()
     else
     {
         /* --- Boucle d'affichage --- */
+        printf("==========================================================================================================================\n");
+        printf("|%-15s |%-10s |%-35s |%-15s |%-15s |%-20s|\n", "Code_ISIN", "Symbole", "Nom_Societe", "Prix", "Quantite", "Seuil_Declenchement");
+        printf("==========================================================================================================================\n");
         for(i = 0; i < nb_actions_portefeuille; i++)
         {
             action = portefeuille[i];
             if(action.quantite > 0)
             {
-                printf("%s,%s,%s,%f,%d,%f", action.code_isin, action.symbole, action.nom_societe, action.prix_achat_unit, action.quantite, action.seuil_declenchement);
-                printf("\n");
+                if(action.seuil_declenchement != PAS_DE_SEUIL_DECLENCHEMNT)
+                {
+                    printf("|%-15s |%-10s |%-35s |%-15f |%-15d |%-20f|\n", action.code_isin, action.symbole, action.nom_societe, action.prix_achat_unit, action.quantite, action.seuil_declenchement);
+                }
+                else
+                { // Si le seuil de declenchement n'est pas defini, afficher Non_Defini à la place de 999
+                    printf("|%-15s |%-10s |%-35s |%-15f |%-15d |%-20s|\n", action.code_isin, action.symbole, action.nom_societe, action.prix_achat_unit, action.quantite, "Non_Defini");
+                }
             }
         }
-        printf("\n");
+        printf("==========================================================================================================================\n");
     }
 }
 /*---------- MENU OPERATION ----------*/
@@ -259,7 +271,7 @@ void OrdreAuMarche()
 
     index_action_recherche_cours_bourse = RechercheAction(symbole_input, cours_bourse, "cours_bourse");
     action = cours_bourse[index_action_recherche_cours_bourse];
-    printf("Le prix du marché : %f\n", action.prix_achat_unit);
+    printf("Le prix du marché                     : %f\n", action.prix_achat_unit);
 
     while (type_operation != 'A' && type_operation != 'V')
     {
@@ -269,23 +281,23 @@ void OrdreAuMarche()
         type_operation = toupper(type_operation);
         if(type_operation != 'A' && type_operation != 'V')
         {
-            printf("La réponse attendue est : A pour Achat ou V pour Vente\n");
+            printf("La réponse attendue est               : A pour Achat ou V pour Vente\n");
         }
     }
 
     if(type_operation == 'A')
     {
-        printf("Opération choisie : Achat\n");
-        printf("Quantité disponbile : %d\n", action.quantite);
+        printf("Opération choisie                     : Achat\n");
+        printf("Quantité disponbile                   : %d\n", action.quantite);
     }
     else
     {
-        printf("Opération choisie : Vente\n");
+        printf("Opération choisie                     : Vente\n");
         index_action_recherche_portefeuille = RechercheAction(symbole_input, portefeuille, "portefeuille");
-        printf("Quantité disponbile : %d\n", portefeuille[index_action_recherche_portefeuille].quantite);
+        printf("Quantité disponbile                   : %d\n", portefeuille[index_action_recherche_portefeuille].quantite);
     }
     
-    printf("Veuillez saisir la quantité : ");
+    printf("Veuillez saisir la quantité           : ");
     scanf("%d", &quantite_input);
 
     if(type_operation == 'A')
@@ -305,7 +317,7 @@ void OrdreAuMarche()
                     ConfirmationSeuilDeclenchement = toupper(ConfirmationSeuilDeclenchement);
                     if(ConfirmationSeuilDeclenchement == 'O')
                     {
-                        printf("Saisissez le seuil de declenchement souhiate (Ex : 12.4 pour 12.4%%) : ");
+                        printf("Saisissez le seuil de declenchement souhiate (Ex : 12.4 pour 12.4%%)     : ");
                         scanf("%f", &seuil_declenchement_input);
                         action.seuil_declenchement = seuil_declenchement_input;
                     }
@@ -316,7 +328,7 @@ void OrdreAuMarche()
                     
                     if(ConfirmationSeuilDeclenchement != 'O' && ConfirmationSeuilDeclenchement != 'N')
                     {
-                        printf("La réponse attendue est : O pour Oui, N pour Non\n");
+                        printf("La réponse attendue est               : O pour Oui, N pour Non\n");
                     }
                 }
 
@@ -395,7 +407,7 @@ void OrdreAuMarche()
     }
 
     GetHeureCourante(heure_courante);
-    printf("Date de l'opération : %s %s\n", date_du_jour, heure_courante);
+    printf("Date de l'opération                   : %s %s\n", date_du_jour, heure_courante);
 }
 /*---------- Ordre à cours limite ----------*/
 void OrdreACoursLimite()
@@ -434,20 +446,20 @@ void OrdreACoursLimite()
 
     if(type_operation == 'A')
     {
-        printf("Opération choisie : Achat\n");
-        printf("Quantité disponbile : %d\n", action.quantite);
+        printf("Opération choisie                     : Achat\n");
+        printf("Quantité disponbile                   : %d\n", action.quantite);
     }
     else
     {
-        printf("Opération choisie : Vente\n");
+        printf("Opération choisie                     : Vente\n");
         index_action_recherche_portefeuille = RechercheAction(symbole_input, portefeuille, "portefeuille");
-        printf("Quantité disponbile : %d\n", portefeuille[index_action_recherche_portefeuille].quantite);
+        printf("Quantité disponbile                   : %d\n", portefeuille[index_action_recherche_portefeuille].quantite);
     }
 
-    printf("Veuillez saisir la quantité : ");
+    printf("Veuillez saisir la quantité           : ");
     scanf("%d", &quantite_input);
 
-    printf("Veuillez saisir le prix : ");
+    printf("Veuillez saisir le prix               : ");
     scanf("%f", &prix_input);
 
     if (type_operation == 'A')
@@ -619,12 +631,16 @@ void AffichageCoursDeBourse()
     int i;
     struct struct_action action;
 
+    printf("========================================= COURS DE BOURSE ==========================================\n");
+    printf("====================================================================================================\n");
+    printf("|%-15s |%-10s |%-35s |%-15s |%-15s|\n", "Code_ISIN", "Symbole", "Nom_Societe", "Prix", "Quantite");
+    printf("====================================================================================================\n");
     for(i = 0; i < nb_actions_cours_bourse; i++)
     { // boucle affichage
         action = cours_bourse[i];
-        printf("%s,%s,%s,%d,%f \n", action.code_isin, action.symbole, action.nom_societe, action.quantite, action.prix_achat_unit);
+        printf("|%-15s |%-10s |%-35s |%-15f |%-15d|\n", action.code_isin, action.symbole, action.nom_societe, action.prix_achat_unit, action.quantite);
     }
-
+    printf("====================================================================================================\n");
     printf("%d indices chargée(s) !\n", nb_actions_cours_bourse);
 }
 /*---------- Recherche d'une action dans le cours de bourse ----------*/
@@ -750,8 +766,8 @@ void AlerteSeuilDeclenchement()
         {
             // Le cas où le seuil de déclenchement est atteint
             printf("Le seuil de déclenchement pour l'action %s est atteint\n", action_cours_bourse.symbole);
-            printf("Prix dans le portefeuille : %f €\n", action_portefeuille.prix_achat_unit);
-            printf("Prix du marche            : %f €\n", action_cours_bourse.prix_achat_unit);
+            printf("Prix dans le portefeuille             : %f €\n", action_portefeuille.prix_achat_unit);
+            printf("Prix du marche                        : %f €\n", action_cours_bourse.prix_achat_unit);
             while (type_operation != 'A' && type_operation != 'V')
             {
                 printf("Opération (A pour Achat, V pour Vente): ");
@@ -766,16 +782,16 @@ void AlerteSeuilDeclenchement()
 
             if (type_operation == 'A')
             {
-                printf("Opération choisie : Achat\n");
-                printf("Quantité disponbile : %d\n", action_cours_bourse.quantite);
+                printf("Opération choisie                     : Achat\n");
+                printf("Quantité disponbile                   : %d\n", action_cours_bourse.quantite);
             }
             else
             {
-                printf("Opération choisie : Vente\n");
-                printf("Quantité disponbile : %d\n", action_portefeuille.quantite);
+                printf("Opération choisie                     : Vente\n");
+                printf("Quantité disponbile                   : %d\n", action_portefeuille.quantite);
             }
 
-            printf("Veuillez saisir la quantité : ");
+            printf("Veuillez saisir la quantité           : ");
             scanf("%d", &quantite_input);
 
             if (type_operation == 'A')
@@ -844,7 +860,7 @@ void AlerteSeuilDeclenchement()
                 }
             }
             GetHeureCourante(heure_courante);
-            printf("Date de l'opération : %s %s\n", date_du_jour, heure_courante);
+            printf("Date de l'opération                   : %s %s\n", date_du_jour, heure_courante);
         }
     }
 }
