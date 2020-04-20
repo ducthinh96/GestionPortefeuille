@@ -11,8 +11,10 @@
 #define NOMBRE_MAX_OPERATIONS 1000
 #define TAILLE_DATE 20
 #define TAILLE_HEURE 10
+#define TAILLE_STATUT_OPERATION 20
 #define COURS_DE_BOURSE_FILE_NAME "COURS_DE_BOURSE.csv"
 #define OPERATIONS_EN_ATTENTE_FILE_NAME "OPERATIONS_EN_ATTENTE.csv"
+#define HISTORIQUE_FILE_NAME "HISTORIQUE.csv"
 
 /* Déclation de la structure globale */
 struct struct_action
@@ -31,6 +33,7 @@ struct operation
     char heure[TAILLE_HEURE]; // Format : HH:MM
     char proprietaire_portefeuille[100];
     char type_operation; // A pour Achat, V pour Vente
+    char statut[TAILLE_STATUT_OPERATION];
 };
 
 /*---------- Déclaration préliminaires ----------*/
@@ -49,17 +52,21 @@ void conv_maj(char *ch);
 void MettreOperationEnAttente(struct struct_action action, float prix, int quantite, char type_operation);
 void ChargerOperationEnAttente();
 void AffichageCoursDeBourse();
+void ChargerHistorique();
+void EnregistrerDansLHistorique(struct struct_action action, float prix, int quantite, char type_operation, char *statut);
 float CaculNouveauPrix(float prix_1, int quantite_1, float prix_2, int quantite_2);
 
 /* Déclaration des variables globales */
 int nb_actions_portefeuille = 0;
 int nb_actions_cours_bourse = 0;
 int nb_operations_en_attente  = 0;
+int nb_operation_effectuee = 0;
 char date_du_jour[TAILLE_DATE]; // Format : JJ/MM/AAAA
 char NomProprietaire[100];
 struct struct_action portefeuille[NOMBRE_MAX_ACTIONS];
 struct struct_action cours_bourse[NOMBRE_MAX_ACTIONS];
 struct operation operations_en_attente[NOMBRE_MAX_OPERATIONS];
+struct operation historique[NOMBRE_MAX_OPERATIONS];
 
 /*---------- Programme principale ----------*/
 int main()
@@ -76,6 +83,9 @@ int main()
     // Récupérer la date du jour
     GetDateDuJour();
 
+    // Chargement de l'historique
+    ChargerHistorique();
+    
     // Verification les seuils de declenchement
     AlerteSeuilDeclenchement();
 
@@ -284,6 +294,7 @@ void OrdreAuMarche()
     char type_operation;
     char symbole_input[TAILLE_CODE_ISIN];
     char heure_courante[TAILLE_HEURE];
+    char statut[TAILLE_STATUT_OPERATION];
     char ConfirmationVente, ConfirmationSeuilDeclenchement;
     int quantite_input, index_action_recherche_cours_bourse, index_action_recherche_portefeuille;
     float seuil_declenchement_input;
@@ -366,6 +377,7 @@ void OrdreAuMarche()
                 action_cours_bourse.quantite = quantite_input;
                 portefeuille[nb_actions_portefeuille++] = action_cours_bourse;
                 cours_bourse[index_action_recherche_cours_bourse].quantite -= quantite_input;
+                strcpy(statut, "Reussi");
                 affichage();
             }
             else
@@ -377,12 +389,14 @@ void OrdreAuMarche()
                 portefeuille[index_action_recherche_portefeuille] = action_portefeuille;
                 cours_bourse[index_action_recherche_cours_bourse].quantite -= quantite_input;
                 printf("Achat de %d actions avec succès.\n", quantite_input);
+                strcpy(statut, "Reussi");
                 affichage();
             }
         }
         else
         {
             printf("Quantité disponible insuffisante !\n");
+            strcpy(statut, "Echoue");
         }
     }
     else
@@ -390,6 +404,7 @@ void OrdreAuMarche()
         if (index_action_recherche_portefeuille == NON_TROUVE)
         {
             printf("La vente à découvert est suspendue suite aux consignes de l'AMF (Autorité des marché financiers).\n");
+            strcpy(statut, "Echoue");
         }
         else
         {
@@ -400,6 +415,7 @@ void OrdreAuMarche()
                 portefeuille[index_action_recherche_portefeuille] = action_portefeuille;
                 cours_bourse[index_action_recherche_cours_bourse].quantite += quantite_input;
                 printf("Vente de %d actions avec succès.\n", quantite_input);
+                strcpy(statut, "Reussi");
                 affichage();
             }
             else
@@ -420,6 +436,7 @@ void OrdreAuMarche()
                         if (ConfirmationVente == 'N')
                         {
                             printf("Opération abandonnée...\n");
+                            EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, quantite_input, type_operation, "Abandonnee");
                             return; // Annuler la vente et revenir au menu précédent
                         }
                     }
@@ -428,11 +445,14 @@ void OrdreAuMarche()
                 printf("Vente de %d actions avec succès.\n", action_portefeuille.quantite);
                 action_portefeuille.quantite = 0;
                 portefeuille[index_action_recherche_portefeuille] = action_portefeuille;
+                strcpy(statut, "Reussi");
                 affichage();
             }
         }
     }
-
+    // Enregistrer l'operation dans l'historique
+    // Pour l'ordre au marche, le prix d'operation enregistre dans l'historique est aussi le prix du marche
+    EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, quantite_input, type_operation, statut);
     GetHeureCourante(heure_courante);
     printf("Date de l'opération                   : %s %s\n", date_du_jour, heure_courante);
 }
@@ -442,6 +462,7 @@ void OrdreACoursLimite()
     char type_operation;
     char symbole_input[TAILLE_CODE_ISIN];
     char heure_courante[TAILLE_HEURE];
+    char statut[TAILLE_STATUT_OPERATION];
     char ConfirmationVente; // O pour Oui, N pour Non
     char ConfirmationSeuilDeclenchement; // O pour Oui, N pour Non
     float prix_input;
@@ -532,6 +553,7 @@ void OrdreACoursLimite()
                     portefeuille[nb_actions_portefeuille++] = action_cours_bourse;
                     cours_bourse[index_action_recherche_cours_bourse].quantite -= quantite_input;
                     printf("Achat de %d actions avec succès.\n", quantite_input);
+                    strcpy(statut, "Reussi");
                     affichage();
                 }
                 else
@@ -543,6 +565,7 @@ void OrdreACoursLimite()
                     portefeuille[index_action_recherche_portefeuille] = action_portefeuille;
                     cours_bourse[index_action_recherche_cours_bourse].quantite -= quantite_input;
                     printf("Achat de %d actions avec succès.\n", quantite_input);
+                    strcpy(statut, "Reussi");
                     affichage();
                 }
             }
@@ -550,11 +573,13 @@ void OrdreACoursLimite()
             {
                 // Si le prix ne correspond pas au prix du marché, il faut mettre cette opération en attente
                 MettreOperationEnAttente(action_cours_bourse, prix_input, quantite_input, type_operation);
+                strcpy(statut, "En_attente");
                 printf("Le prix actuel ne correspond pas au prix souhaite, l'operation est mise en attente.\n");
             }
         }
         else
         {
+            strcpy(statut, "Echoue");
             printf("Quantité disponible insuffisante !\n");
         }
     }
@@ -562,6 +587,7 @@ void OrdreACoursLimite()
     { // VENTE
         if (index_action_recherche_portefeuille == NON_TROUVE)
         {
+            strcpy(statut, "Echoue");
             printf("La vente à découvert est suspendue suite aux consignes de l'AMF (Autorité des marché financiers).\n");
         }
         else
@@ -576,6 +602,7 @@ void OrdreACoursLimite()
                     portefeuille[index_action_recherche_portefeuille] = action_portefeuille;
                     cours_bourse[index_action_recherche_cours_bourse].quantite += quantite_input;
                     printf("Vente de %d actions avec succès.\n", quantite_input);
+                    strcpy(statut, "Reussi");
                     affichage();
                 }
                 else
@@ -604,6 +631,7 @@ void OrdreACoursLimite()
                     printf("Vente de %d actions avec succès.\n", action_portefeuille.quantite);
                     action_portefeuille.quantite = 0;
                     portefeuille[index_action_recherche_portefeuille] = action_portefeuille;
+                    strcpy(statut, "Reussi");
                     affichage();
                 }
             }
@@ -611,10 +639,12 @@ void OrdreACoursLimite()
             {
                 // Si le prix ne correspond pas au prix du marché, il faut mettre cette opération en attente
                 MettreOperationEnAttente(action_cours_bourse, prix_input, quantite_input, type_operation);
+                strcpy(statut, "En_attente");
                 printf("Le prix actuel ne correspond pas au prix souhaite, l'operation est mise en attente.\n");
             }
         }
     }
+    EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, quantite_input, type_operation, statut);
     GetHeureCourante(heure_courante);
     printf("Date de l'opération                   : %s %s\n", date_du_jour, heure_courante);
 }
@@ -783,6 +813,67 @@ void MettreOperationEnAttente(struct struct_action action, float prix, int quant
     }
     fclose(f1);
 }
+/*---------- Charger l'historique des opérations ----------*/
+void ChargerHistorique()
+{
+    int i;
+    struct struct_action action;
+    struct operation operation;
+    FILE *f1;
+    char ligne[1000];
+    int retour;
+
+    /* --- Boucle de chargement --- */
+    i = nb_operation_effectuee;
+    
+    // Ouvrir le fichier historique en mode lecture
+    f1 = fopen(HISTORIQUE_FILE_NAME, "r");
+
+    //Ignorer la première ligne réservée pour les en-têtes
+    fgets(ligne, sizeof ligne, f1);
+
+    while(!feof(f1))
+    {
+        fgets(ligne, sizeof ligne, f1);
+        retour = sscanf(ligne, "%[^,],%[^,],%[^,],%[^,],%[^,],%f,%d,%c,%s", operation.date, operation.heure, operation.proprietaire_portefeuille, operation.action.symbole, operation.action.code_isin, &operation.action.prix_achat_unit, &operation.action.quantite, &operation.type_operation, operation.statut);
+        if(retour != EOF)
+        {
+            historique[i++] = operation;
+        }
+    }
+    fclose(f1);
+    nb_operation_effectuee = i;
+}
+/*---------- Enregistrer une opération dans l'historique ----------*/
+void EnregistrerDansLHistorique(struct struct_action action, float prix, int quantite, char type_operation, char *statut)
+{
+    int i;
+    FILE *f1;
+    char heure_courante[TAILLE_HEURE];
+    struct operation operation;
+    int retour;
+
+    // Ajouter l'opération dans le tableau operations_en_attente
+    operation.action = action;
+    operation.action.prix_achat_unit = prix;
+    operation.action.quantite = quantite;
+    strcpy(operation.date, date_du_jour);
+    GetHeureCourante(heure_courante);
+    strcpy(operation.heure, heure_courante);
+    operation.type_operation = type_operation;
+    strcpy(operation.proprietaire_portefeuille, NomProprietaire);
+    strcpy(operation.statut, statut);
+    historique[nb_operation_effectuee++] = operation;
+
+    /* --- Boucle de sauvegarde --- */
+    f1 = fopen(HISTORIQUE_FILE_NAME, "w");
+    fprintf(f1, "Date,Heure,Proprietaire_Portefeuille,Symbole,Code_ISIN,Prix,Quantite,Type_Operation,Statut\n");
+    for(i = 0; i < nb_operation_effectuee; i++)
+    {
+        fprintf(f1, "%s,%s,%s,%s,%s,%f,%d,%c,%s\n", historique[i].date, historique[i].heure, historique[i].proprietaire_portefeuille, historique[i].action.symbole, historique[i].action.code_isin, historique[i].action.prix_achat_unit, historique[i].action.quantite, historique[i].type_operation, historique[i].statut);
+    }
+    fclose(f1);
+}
 /*---------- Calculer la nouvelle valeur d'action dans le portefeuille (moyenne pondérée) ----------*/
 float CaculNouveauPrix(float prix_1, int quantite_1, float prix_2, int quantite_2)
 {
@@ -795,6 +886,7 @@ void AlerteSeuilDeclenchement()
     float prix_declenchement_superieur, prix_declenchement_inferieur;
     char type_operation, ConfirmationVente;
     char heure_courante[TAILLE_HEURE];
+    char statut[TAILLE_STATUT_OPERATION];
     struct struct_action action_portefeuille, action_cours_bourse;
 
     for (i = 0; i < nb_actions_portefeuille; i++)
@@ -854,11 +946,13 @@ void AlerteSeuilDeclenchement()
                     action_cours_bourse.quantite -= quantite_input;
                     cours_bourse[index_action_cours_bourse] = action_cours_bourse;
                     printf("Achat de %d actions avec succès.\n", quantite_input);
+                    strcpy(statut, "Reussi");
                     affichage();
                 }
                 else
                 {
                     printf("Quantité disponible insuffisante !\n");
+                    strcpy(statut, "Echoue");
                 }
             }
             else
@@ -871,6 +965,7 @@ void AlerteSeuilDeclenchement()
                     action_cours_bourse.quantite += quantite_input;
                     cours_bourse[index_action_cours_bourse] = action_cours_bourse;
                     printf("Vente de %d actions avec succès.\n", quantite_input);
+                    strcpy(statut, "Reussi");
                     affichage();
                 }
                 else
@@ -892,6 +987,7 @@ void AlerteSeuilDeclenchement()
                             if (ConfirmationVente == 'N')
                             {
                                 printf("Opération abandonnée...\n");
+                                EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, quantite_input, type_operation, "Abandonnee");
                                 return; // Annuler la vente et revenir au menu précédent
                             }
                             else
@@ -901,12 +997,14 @@ void AlerteSeuilDeclenchement()
                                 action_portefeuille.quantite = 0;
                                 portefeuille[i] = action_portefeuille;
                                 cours_bourse[index_action_cours_bourse] = action_cours_bourse;
+                                strcpy(statut, "Reussi");
                                 affichage();
                             }
                         }
                     }
                 }
             }
+            EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, quantite_input, type_operation, statut);
             GetHeureCourante(heure_courante);
             printf("Date de l'opération                   : %s %s\n", date_du_jour, heure_courante);
         }
