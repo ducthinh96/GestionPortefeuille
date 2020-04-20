@@ -57,6 +57,7 @@ void ChargerHistorique();
 void EnregistrerDansLHistorique(struct struct_action action, float prix, int quantite, char type_operation, char *statut);
 float CaculNouveauPrix(float prix_1, int quantite_1, float prix_2, int quantite_2);
 int Egal(float f1, float f2);
+void CalculerSommeOperation(char *statut, char type_operation, float prix, int quantite);
 
 /* Déclaration des variables globales */
 int nb_actions_portefeuille = 0;
@@ -456,9 +457,14 @@ void OrdreAuMarche()
             }
         }
     }
+    // Calculer et annoncer la somme de l'achat et de la vente
+    CalculerSommeOperation(statut, type_operation, action_cours_bourse.prix_achat_unit, quantite_input);
+
     // Enregistrer l'operation dans l'historique
     // Pour l'ordre au marche, le prix d'operation enregistre dans l'historique est aussi le prix du marche
     EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, quantite_input, type_operation, statut);
+
+    // Afficher la date et l'heure d'operation
     GetHeureCourante(heure_courante);
     printf("Date de l'opération                   : %s %s\n", date_du_jour, heure_courante);
 }
@@ -650,7 +656,14 @@ void OrdreACoursLimite()
             }
         }
     }
-    EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, quantite_input, type_operation, statut);
+    // Calculer et annoncer la somme de l'achat et de la vente
+    CalculerSommeOperation(statut, type_operation, prix_input, quantite_input);
+
+    // Enregistrer l'operation dans l'historique
+    // Pour l'ordre a cours limite, le prix d'operation enregistre dans l'historique est le prix_input
+    EnregistrerDansLHistorique(action_cours_bourse, prix_input, quantite_input, type_operation, statut);
+
+    // Afficher la date et l'heure d'operation
     GetHeureCourante(heure_courante);
     printf("Date de l'opération                   : %s %s\n", date_du_jour, heure_courante);
 }
@@ -1010,7 +1023,14 @@ void AlerteSeuilDeclenchement()
                     }
                 }
             }
+            // Calculer et annoncer la somme de l'achat et de la vente
+            CalculerSommeOperation(statut, type_operation, action_cours_bourse.prix_achat_unit, quantite_input);
+
+            // Enregistrer l'operation dans l'historique
+            // Pour l'ordre au seuil de declenchement, le prix d'operation enregistre dans l'historique est aussi le prix du marche 
             EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, quantite_input, type_operation, statut);
+
+            // Afficher la date et l'heure d'operation
             GetHeureCourante(heure_courante);
             printf("Date de l'opération                   : %s %s\n", date_du_jour, heure_courante);
         }
@@ -1067,5 +1087,26 @@ int Egal(float f1, float f2)
     else
     {
         return 0;
+    }
+}
+/*---------- Calculer et annoncer la somme d'operation (achat/vente) ----------*/
+void CalculerSommeOperation(char *statut, char type_operation, float prix, int quantite)
+{
+    float somme_operation;
+
+    if(strcmp(statut, "Reussi") == 0)
+    {
+        // Uniquement quand l'operation est reussie
+        somme_operation = prix * quantite;
+        if(type_operation == 'A')
+        {
+            // Somme de l'achat
+            printf("Somme à payer                         : %.2f\n", somme_operation);
+        }
+        else
+        {
+            // Somme de la vente
+            printf("Somme à verser                        : %.2f\n", somme_operation);
+        }
     }
 }
