@@ -147,21 +147,30 @@ void MenuPortefeuille()
         }
     }
 }
-/*---------- Affichage de portefeuille ----------*/
+/*---------- Chargement de portefeuille ----------*/
 void chargement() // ask for person name not the file name
 {
     int i;
     struct struct_action action;
     FILE *f1;
     char NomFichier[100], NomProprietaireInput[100], PortefeuilleType[10];
+    char bidon[100]; // caractere pour consommer le retour à la ligne
+    char ligne[1000];
     int retour;
 
     printf("Nom du propriétaire de portefeuille : ");
     scanf("%s", NomProprietaire);
     conv_maj(NomProprietaire);
-    printf("Type de portefeille                 : ");
-    scanf("%s", PortefeuilleType);
-    conv_maj(PortefeuilleType);
+    while(strcmp(PortefeuilleType, "PEA") != 0 && strcmp(PortefeuilleType, "COMPTE_TITRE") != 0)
+    {
+        printf("Portefeille type (PEA/COMPTE_TITRE) : ");
+        scanf("%s", PortefeuilleType);
+        conv_maj(PortefeuilleType);
+        if(strcmp(PortefeuilleType, "PEA") != 0 && strcmp(PortefeuilleType, "COMPTE_TITRE") != 0)
+        {
+            printf("La réponse attendue est             : PEA/COMPTE_TITRE\n");
+        }
+    }
 
     // Nom du fichier à charger à partir de NomProprietaire et PortefeuilleType (format : NomProprietaireInput_PortefeuilleType.csv)
     strcpy(NomFichier, NomProprietaire);
@@ -169,18 +178,36 @@ void chargement() // ask for person name not the file name
     strcat(NomFichier, PortefeuilleType);
     strcat(NomFichier, ".csv");
 
-    /* --- Boucle de chargement --- */
+    // Init le compteur i
     i = nb_actions_portefeuille;
     
+    // Ouvrir le fichier de portefeuille en mode Lecture
     f1 = fopen(NomFichier, "r");
+
+    // Ignorer la premiere ligne qui est réservée pour les en-têtes
+    fgets(ligne, sizeof ligne, f1);
+
+    // Boucle de chatgement utilisant fscanf() <= Problème avec le retour à la ligne
+    // while(!feof(f1))
+    // {
+    //     retour = fscanf(f1, "%[^,],%[^,],%[^,],%f,%d,%f%[^\n]\n", action.code_isin, action.symbole,action.nom_societe, &action.prix_achat_unit, &action.quantite, &action.seuil_declenchement, bidon);
+    //     if(retour != EOF)
+    //     {
+    //         portefeuille[i++] = action;
+    //     }
+    // }
+
+    // Boucle de chargement utilisant fgets() & sscanf()
     while(!feof(f1))
     {
-        retour = fscanf(f1, "%[^,],%[^,],%[^,],%f,%d,%f\n", action.code_isin, action.symbole,action.nom_societe, &action.prix_achat_unit, &action.quantite, &action.seuil_declenchement);
+        fgets(ligne, sizeof ligne, f1);
+        retour = sscanf(ligne, "%[^,],%[^,],%[^,],%f,%d,%f", action.code_isin, action.symbole,action.nom_societe, &action.prix_achat_unit, &action.quantite, &action.seuil_declenchement);
         if(retour != EOF)
         {
             portefeuille[i++] = action;
         }
     }
+
     fclose(f1);
     nb_actions_portefeuille = i;
 
@@ -610,19 +637,37 @@ void GetCoursDeBourseFromCSV()
     int j;
     struct struct_action action;
     char bidon[100]; // caractere pour consommer le retour à la ligne
+    char ligne[1000];
     FILE *f1;
     int retour;
 
-    /* --- Boucle de chargement --- */
+    // Ouvrir le fichier de cours de bourse en mode Lecture
     f1 = fopen(COURS_DE_BOURSE_FILE_NAME, "r");
+
+    // Ignorer la premiere ligne qui est réservée pour les en-têtes
+    fgets(ligne, sizeof ligne, f1);
+
+    // Boucle de chatgement utilisant fscanf() <= Problème avec le retour à la ligne
+    // while(!feof(f1))
+    // {
+    //     retour = fscanf(f1, "%[^,],%[^,],%[^,],%d,%f%[^\n]\n", action.code_isin, action.symbole, action.nom_societe, &action.quantite, &action.prix_achat_unit, bidon);
+    //     if(retour != EOF)
+    //     {
+    //         cours_bourse[nb_actions_cours_bourse++] = action;
+    //     }
+    // }
+
+    // Boucle de chargement utilisant fgets() & sscanf()
     while(!feof(f1))
     {
-        retour = fscanf(f1, "%[^,],%[^,],%[^,],%d,%f%[^\n]\n", action.code_isin, action.symbole, action.nom_societe, &action.quantite, &action.prix_achat_unit, bidon);
+        fgets(ligne, sizeof ligne, f1);
+        retour = sscanf(ligne, "%[^,],%[^,],%[^,],%d,%f", action.code_isin, action.symbole, action.nom_societe, &action.quantite, &action.prix_achat_unit);
         if(retour != EOF)
         {
             cours_bourse[nb_actions_cours_bourse++] = action;
         }
     }
+        
     fclose(f1); 
 }
 /*---------- Afficher le cours de bourse ----------*/
