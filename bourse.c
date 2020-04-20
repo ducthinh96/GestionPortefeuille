@@ -52,9 +52,11 @@ void conv_maj(char *ch);
 void MettreOperationEnAttente(struct struct_action action, float prix, int quantite, char type_operation);
 void ChargerOperationEnAttente();
 void AffichageCoursDeBourse();
+void ModificationCoursBourse();
 void ChargerHistorique();
 void EnregistrerDansLHistorique(struct struct_action action, float prix, int quantite, char type_operation, char *statut);
 float CaculNouveauPrix(float prix_1, int quantite_1, float prix_2, int quantite_2);
+int Egal(float f1, float f2);
 
 /* Déclaration des variables globales */
 int nb_actions_portefeuille = 0;
@@ -85,7 +87,7 @@ int main()
 
     // Chargement de l'historique
     ChargerHistorique();
-    
+
     // Verification les seuils de declenchement
     AlerteSeuilDeclenchement();
 
@@ -102,6 +104,7 @@ int main()
         printf("-1- Gestion de portefeuille\n");
         printf("-2- Menu des operations\n");
         printf("-3- Affichage du cours de bourse\n");
+        printf("-4- Modification du cours de bourse\n");
         printf("-0- Quitter l'application\n");
         printf("Choix : ");
         scanf("%d", &choix);
@@ -117,6 +120,9 @@ int main()
                 break;
             case 3:
                 AffichageCoursDeBourse();
+                break;
+            case 4:
+                ModificationCoursBourse();
                 break;
             case 0:
                 printf("Au revoir !\n");
@@ -520,7 +526,7 @@ void OrdreACoursLimite()
     { // ACHAT
         if (quantite_input <= action_cours_bourse.quantite)
         {
-            if (prix_input == action_cours_bourse.prix_achat_unit)
+            if (Egal(prix_input, action_cours_bourse.prix_achat_unit))
             {  
                 // Quand le prix correspond au prix du marché, l'opération sera exécutée
                 if (index_action_recherche_portefeuille == NON_TROUVE)
@@ -592,10 +598,10 @@ void OrdreACoursLimite()
         }
         else
         {
-            if (prix_input == cours_bourse[index_action_recherche_cours_bourse].prix_achat_unit)
+            if (Egal(prix_input, action_cours_bourse.prix_achat_unit))
             {
                 // Quand le prix correspond au prix du marché, l'opération sera exécutée
-                if (portefeuille[index_action_recherche_portefeuille].quantite >= quantite_input)
+                if (action_portefeuille.quantite >= quantite_input)
                 {
                     // Si le portefeuill contient suffisamment d'actions à vendre, la quantié à vendre sera enlevée du portefeuille et ajoutée dans le cours de bourse
                     action_portefeuille.quantite -= quantite_input;
@@ -902,7 +908,7 @@ void AlerteSeuilDeclenchement()
         prix_declenchement_superieur = action_portefeuille.prix_achat_unit + (action_portefeuille.prix_achat_unit * (action_portefeuille.seuil_declenchement / 100));
         prix_declenchement_inferieur = action_portefeuille.prix_achat_unit - (action_portefeuille.prix_achat_unit * (action_portefeuille.seuil_declenchement / 100));
 
-        if (prix_declenchement_superieur == action_cours_bourse.prix_achat_unit || prix_declenchement_inferieur == action_cours_bourse.prix_achat_unit)
+        if (Egal(prix_declenchement_superieur, action_cours_bourse.prix_achat_unit) || Egal(prix_declenchement_inferieur, action_cours_bourse.prix_achat_unit))
         {
             // Le cas où le seuil de déclenchement est atteint
             printf("Le seuil de déclenchement pour l'action %s est atteint\n", action_cours_bourse.symbole);
@@ -1008,5 +1014,58 @@ void AlerteSeuilDeclenchement()
             GetHeureCourante(heure_courante);
             printf("Date de l'opération                   : %s %s\n", date_du_jour, heure_courante);
         }
+    }
+}
+/*---------- Modification le prix du cours de bourse ----------*/
+void ModificationCoursBourse()
+{
+    char symbole_input[TAILLE_CODE_ISIN];
+    char heure_courante[TAILLE_HEURE];
+    int  index_action_recherche_cours_bourse;
+    float prix_input;
+    struct struct_action action_cours_bourse;
+
+    printf("================ MODIFICATION DU COURS DE BOURSE ================\n");
+    printf("Veuillez saisir le code de la société concernée par votre opération : ");
+    scanf("%s", symbole_input);
+    conv_maj(symbole_input);
+
+    // Recherche l'action dans le cours de bourse
+    index_action_recherche_cours_bourse = RechercheAction(symbole_input, cours_bourse, "cours_bourse");
+    if(index_action_recherche_cours_bourse == NON_TROUVE)
+    {
+        printf("L'action %s est introuvable. Veuillez réessayer...\n", symbole_input);
+    }
+    else
+    {
+        action_cours_bourse = cours_bourse[index_action_recherche_cours_bourse];
+
+        // Modification du prix du cours de bourse
+        printf("Le prix actuel                        : %f\n", action_cours_bourse.prix_achat_unit);
+        printf("Veuillez saisir le nouveau prix       : ");
+        scanf("%f", &prix_input);
+        action_cours_bourse.prix_achat_unit = prix_input;
+        cours_bourse[index_action_recherche_cours_bourse] = action_cours_bourse;
+        printf("Modification réussie.\n");
+
+        // Verification les seuils de declenchement
+        AlerteSeuilDeclenchement();
+    }
+}
+/*---------- Comparaison de 2 chiffres décimaux ----------*/
+int Egal(float f1, float f2)
+{
+    // Fonction pour comparer 2 chiffres décimaux avec une précision
+    // Retourne 1 si les 2 chiffres sont "égaux"
+    // Retourne 0 si ils sont "différents"
+    float precision = 0.01;
+
+    if (((f1 - precision) < f2) && ((f1 + precision) > f2))
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
     }
 }
