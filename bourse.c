@@ -521,7 +521,7 @@ void OrdreACoursLimite()
         printf("Opération choisie                     : Vente\n");
         printf("Quantité disponbile                   : %d\n", action_portefeuille.quantite);
     }
-
+    
     printf("Veuillez saisir la quantité           : ");
     scanf("%d", &quantite_input);
 
@@ -635,6 +635,7 @@ void OrdreACoursLimite()
                             if (ConfirmationVente == 'N')
                             {
                                 printf("Opération abandonnée...\n");
+                                EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, quantite_input, type_operation, "Abandonnee");
                                 return; // Annuler la vente et revenir au menu précédent
                             }
                         }
