@@ -654,7 +654,7 @@ void CalculerSommeOperation(char *statut, char type_operation, float prix, int q
         else
         {
             // Somme de la vente
-            printf("Somme à verser                        : %.2f", somme_operation);
+            printf("Somme à collecter                     : %.2f\n", somme_operation);
         }
     }
 }
