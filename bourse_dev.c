@@ -579,7 +579,6 @@ void AlerteSeuilDeclenchement()
             // Le cas où le seuil de déclenchement est atteint
             printf("Le seuil de déclenchement pour l'action %s est atteint\n", action_cours_bourse.symbole);
             printf("Prix dans le portefeuille             : %f €\n", action_portefeuille.prix_achat_unit);
-            printf("Prix du marche                        : %f €\n", action_cours_bourse.prix_achat_unit);
 
             AchatVente("ordre_seuil_declenchement", action_portefeuille.symbole);
         }
@@ -681,8 +680,9 @@ void AchatVente(char *type_ordre, char symbole_input[])
     index_action_recherche_portefeuille = RechercheAction(symbole_input, portefeuille, "portefeuille");
     action_portefeuille = portefeuille[index_action_recherche_portefeuille];
 
-    printf("Le prix du marché                     : %f\n", action_cours_bourse.prix_achat_unit);
+    printf("Prix du marche                        : %f €\n", action_cours_bourse.prix_achat_unit);
 
+    type_operation = '\0';
     while (type_operation != 'A' && type_operation != 'V')
     {
         printf("Opération (A pour Achat, V pour Vente): ");
