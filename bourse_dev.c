@@ -12,6 +12,7 @@
 #define TAILLE_DATE 20
 #define TAILLE_HEURE 10
 #define TAILLE_STATUT_OPERATION 20
+#define TAILLE_LIGNE 1000
 #define COURS_DE_BOURSE_FILE_NAME "COURS_DE_BOURSE.csv"
 #define OPERATIONS_EN_ATTENTE_FILE_NAME "OPERATIONS_EN_ATTENTE.csv"
 #define HISTORIQUE_FILE_NAME "HISTORIQUE.csv"
@@ -171,9 +172,9 @@ void chargement() // ask for person name not the file name
     int i;
     struct struct_action action;
     FILE *f1;
-    char NomFichier[100], NomProprietaireInput[100], PortefeuilleType[10];
+    char NomFichier[200], NomProprietaireInput[100], PortefeuilleType[20];
     char bidon[100]; // caractere pour consommer le retour à la ligne
-    char ligne[1000];
+    char ligne[TAILLE_LIGNE];
     int retour;
 
     printf("Nom du propriétaire de portefeuille : ");
@@ -345,7 +346,7 @@ void GetCoursDeBourseFromCSV()
     int j;
     struct struct_action action;
     char bidon[100]; // caractere pour consommer le retour à la ligne
-    char ligne[1000];
+    char ligne[TAILLE_LIGNE];
     FILE *f1;
     int retour;
 
@@ -495,7 +496,7 @@ void ChargerHistorique()
     struct struct_action action;
     struct operation operation;
     FILE *f1;
-    char ligne[1000];
+    char ligne[TAILLE_LIGNE];
     int retour;
 
     /* --- Boucle de chargement --- */
@@ -773,7 +774,7 @@ void AchatVente(char *type_ordre, char symbole_input[])
                 // Si le prix ne correspond pas au prix du marché, il faut mettre cette opération en attente
                 MettreOperationEnAttente(action_cours_bourse, prix_input, quantite_input, type_operation);
                 strcpy(statut, "En_attente");
-                printf("Le prix actuel ne correspond pas au prix souhaite, l'operation est mise en attente.\n");
+                printf("Le prix du marché est different du prix souhaite, l'operation ordre au limite est mise en attente.\n");
             }
         }
         else
@@ -787,7 +788,7 @@ void AchatVente(char *type_ordre, char symbole_input[])
         if (index_action_recherche_portefeuille == NON_TROUVE)
         {
             strcpy(statut, "Echoue");
-            printf("La vente à découvert est suspendue suite aux consignes de l'AMF (Autorité des marché financiers).\n");
+            printf("Depuis Mardi 17 Mars 2020, l'AMF (Autorité des marché financiers) a interdit La vente à découvert sur 92 titres à la bourse de PARIS.\n");
         }
         else
         {
@@ -839,7 +840,7 @@ void AchatVente(char *type_ordre, char symbole_input[])
                 // Si le prix ne correspond pas au prix du marché, il faut mettre cette opération en attente
                 MettreOperationEnAttente(action_cours_bourse, prix_input, quantite_input, type_operation);
                 strcpy(statut, "En_attente");
-                printf("Le prix actuel ne correspond pas au prix souhaite, l'operation est mise en attente.\n");
+                printf("LLe prix du marché est different du prix souhaite, l'operation ordre au limite est mise en attente.\n");
             }
         }
     }
