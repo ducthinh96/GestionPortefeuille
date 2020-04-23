@@ -13,6 +13,8 @@
 #define TAILLE_HEURE 10
 #define TAILLE_STATUT_OPERATION 20
 #define TAILLE_LIGNE 1000
+#define TYPE_OPERATION_NON_DEFINI '\0'
+#define QUANTITE_NON_DEFINI 0
 #define COURS_DE_BOURSE_FILE_NAME "COURS_DE_BOURSE.csv"
 #define OPERATIONS_EN_ATTENTE_FILE_NAME "OPERATIONS_EN_ATTENTE.csv"
 #define HISTORIQUE_FILE_NAME "HISTORIQUE.csv"
@@ -61,13 +63,17 @@ void AffichageHisotrique();
 float CaculNouveauPrix(float prix_1, int quantite_1, float prix_2, int quantite_2);
 int Egal(float f1, float f2);
 void CalculerSommeOperation(char *statut, char type_operation, float prix, int quantite);
-void AchatVente(char *type_ordre, char symbole_input[]);
+void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argument, float quantite_argument);
 void verif_sauvegarde();
+void AfficherOperationsEnAttente();
+void MettreAJourDesOperationsEnAttente();
+void VerificationOperationEnAttente();
 
 /* Déclaration des variables globales */
 int nb_actions_portefeuille = 0;
 int nb_actions_cours_bourse = 0;
 int nb_operations_en_attente  = 0;
+int nb_operation_en_attente_session = 0;
 int nb_operation_effectuee_total = 0;
 int nb_operation_effectue_total_debut_session;
 int nb_operation_effectuee_session = 0;
@@ -115,7 +121,8 @@ int main()
         printf("-2- Menu des operations\n");
         printf("-3- Affichage du cours de bourse\n");
         printf("-4- Modification du cours de bourse\n");
-        printf("-5- Affichage de l'historique\n");
+        printf("-5- Affichage des operation en attente\n");
+        printf("-6- Affichage de l'historique\n");
         printf("-0- Quitter l'application\n");
         printf("Choix : ");
         scanf("%d", &choix);
@@ -136,6 +143,9 @@ int main()
                 ModificationCoursBourse();
                 break;
             case 5:
+                AfficherOperationsEnAttente();
+                break;
+            case 6:
                 AffichageHisotrique();
                 break;
             case 0:
@@ -321,7 +331,7 @@ void OrdreAuMarche()
     scanf("%s", symbole_input);
     conv_maj(symbole_input);
 
-    AchatVente("ordre_au_marche", symbole_input);
+    AchatVente("ordre_au_marche", symbole_input, TYPE_OPERATION_NON_DEFINI, QUANTITE_NON_DEFINI);
 }
 /*---------- Ordre à cours limite ----------*/
 void OrdreACoursLimite()
@@ -334,7 +344,7 @@ void OrdreACoursLimite()
     scanf("%s", symbole_input);
     conv_maj(symbole_input);
 
-    AchatVente("ordre_a_cours_limite", symbole_input);
+    AchatVente("ordre_a_cours_limite", symbole_input, TYPE_OPERATION_NON_DEFINI, QUANTITE_NON_DEFINI);
 }
 /*---------- Get Date du Jour ----------*/
 void GetDateDuJour()
@@ -464,6 +474,7 @@ void ChargerOperationEnAttente()
         retour = fscanf(f1, "%[^,],%[^,],%[^,],%[^,],%[^,],%f,%d,%c\n", operation.date, operation.heure, operation.proprietaire_portefeuille, operation.action.symbole, operation.action.code_isin, &operation.action.prix_achat_unit, &operation.action.quantite, &operation.type_operation);
         if(retour != EOF)
         {
+            strcpy(operation.statut, "En_attente");
             operations_en_attente[i++] = operation;
         }
     }
@@ -476,11 +487,8 @@ void ChargerOperationEnAttente()
 void MettreOperationEnAttente(struct struct_action action, float prix, int quantite, char type_operation)
 {
     int i;
-    FILE *f1;
-    char NomFichier[100];
     char heure_courante[TAILLE_HEURE];
     struct operation operation;
-    int retour;
 
     // Ajouter l'opération dans le tableau operations_en_attente
     operation.action = action;
@@ -492,14 +500,61 @@ void MettreOperationEnAttente(struct struct_action action, float prix, int quant
     operation.type_operation = type_operation;
     strcpy(operation.proprietaire_portefeuille, NomProprietaire);
     operations_en_attente[nb_operations_en_attente++] = operation;
+    nb_operation_en_attente_session++;
+
+    /* --- Boucle de sauvegarde --- */
+    MettreAJourDesOperationsEnAttente();
+}
+/*---------- Mettre une opération en attente ----------*/
+void MettreAJourDesOperationsEnAttente()
+{
+    int i;
+    FILE *f1;
+    struct operation operation;
 
     /* --- Boucle de sauvegarde --- */
     f1 = fopen(OPERATIONS_EN_ATTENTE_FILE_NAME, "w");
     for(i = 0; i < nb_operations_en_attente; i++)
     {
-        fprintf(f1, "%s,%s,%s,%s,%s,%.2f,%d,%c\n", operations_en_attente[i].date, operations_en_attente[i].heure, operations_en_attente[i].proprietaire_portefeuille, operations_en_attente[i].action.symbole, operations_en_attente[i].action.code_isin, operations_en_attente[i].action.prix_achat_unit, operations_en_attente[i].action.quantite, operations_en_attente[i].type_operation);
+        operation = operations_en_attente[i];
+        if(strcmp(operation.statut, "Resolu") != 0)
+        {
+            fprintf(f1, "%s,%s,%s,%s,%s,%.2f,%d,%c\n", operation.date, operation.heure, operation.proprietaire_portefeuille, operation.action.symbole, operation.action.code_isin, operation.action.prix_achat_unit, operation.action.quantite, operation.type_operation);
+        }
     }
     fclose(f1);
+}
+/*---------- Afficher des opérations en attente ----------*/
+void AfficherOperationsEnAttente()
+{
+    int i;
+    char type_operation_libelle[20];
+    struct operation operation;
+
+    /* --- Boucle d'affichage --- */
+    printf("========================================================== OPERATIONS EN ATTENTE ==================================================================\n");
+    printf("===================================================================================================================================================\n");
+    printf("|%-15s |%-10s |%-30s |%-10s |%-15s |%-15s |%-20s |%-15s |\n", "Date", "Heure", "Proprietaire_Portefeuille", "Symbole", "Code_ISIN", "Prix", "Quantite", "Type_Operation");
+    printf("===================================================================================================================================================\n");
+    for(i = 0; i < nb_operations_en_attente; i++)
+    {
+        operation = operations_en_attente[i];
+        if(strcmp(operation.proprietaire_portefeuille, NomProprietaire) == 0)
+        {
+            if(operation.type_operation == 'A')
+            {
+                strcpy(type_operation_libelle, "ACHAT");
+            }
+            else
+            {
+                strcpy(type_operation_libelle, "VENTE");
+            }
+
+            printf("|%-15s |%-10s |%-30s |%-10s |%-15s |%-15.2f |%-20d |%-15s |\n", operation.date, operation.heure, operation.proprietaire_portefeuille, operation.action.symbole, operation.action.code_isin, operation.action.prix_achat_unit, operation.action.quantite, type_operation_libelle);
+        }
+        
+    }
+    printf("===================================================================================================================================================\n");
 }
 /*---------- Charger l'historique des opérations ----------*/
 void ChargerHistorique()
@@ -571,37 +626,32 @@ void AffichageHisotrique()
     struct operation operation;
     char type_operation_libelle[20];
 
-    if(nb_operation_effectuee_session == 0)
+
+    printf("===================================================================== HISTORIQUE ===================================================================================\n");
+    printf("====================================================================================================================================================================\n");
+    printf("|%-15s |%-10s |%-30s |%-10s |%-15s |%-15s |%-20s |%-15s |%-15s |\n", "Date", "Heure", "Proprietaire_Portefeuille", "Symbole", "Code_ISIN", "Prix", "Quantite", "Type_Operation", "Statut");
+    printf("====================================================================================================================================================================\n");
+    for(i = nb_operation_effectue_total_debut_session; i < nb_operation_effectuee_total; i++)
     {
-        printf("Aucune operation à afficher.\n");
-    }
-    else
-    {
-        printf("===================================================================== HISTORIQUE ===================================================================================\n");
-        printf("====================================================================================================================================================================\n");
-        printf("|%-15s |%-10s |%-30s |%-10s |%-15s |%-15s |%-20s |%-15s |%-15s |\n", "Date", "Heure", "Proprietaire_Portefeuille", "Symbole", "Code_ISIN", "Prix", "Quantite", "Type_Operation", "Statut");
-        printf("====================================================================================================================================================================\n");
-        for(i = nb_operation_effectue_total_debut_session; i < nb_operation_effectuee_total; i++)
+        operation = historique[i];
+        if(strcmp(operation.proprietaire_portefeuille, NomProprietaire) == 0)
         {
             operation = historique[i];
-            if(strcmp(operation.proprietaire_portefeuille, NomProprietaire) == 0)
+
+            if(operation.type_operation == 'A')
             {
-                operation = historique[i];
-
-                if(operation.type_operation == 'A')
-                {
-                    strcpy(type_operation_libelle, "ACHAT");
-                }
-                else
-                {
-                    strcpy(type_operation_libelle, "VENTE");
-                }
-
-                printf("|%-15s |%-10s |%-30s |%-10s |%-15s |%-15.2f |%-20d |%-15s |%-15s |\n", operation.date, operation.heure, operation.proprietaire_portefeuille, operation.action.symbole, operation.action.code_isin, operation.action.prix_achat_unit, operation.action.quantite, type_operation_libelle, operation.statut);
+                strcpy(type_operation_libelle, "ACHAT");
             }
+            else
+            {
+                strcpy(type_operation_libelle, "VENTE");
+            }
+
+            printf("|%-15s |%-10s |%-30s |%-10s |%-15s |%-15.2f |%-20d |%-15s |%-15s |\n", operation.date, operation.heure, operation.proprietaire_portefeuille, operation.action.symbole, operation.action.code_isin, operation.action.prix_achat_unit, operation.action.quantite, type_operation_libelle, operation.statut);
         }
-        printf("====================================================================================================================================================================\n");
     }
+    printf("====================================================================================================================================================================\n");
+    
 }
 /*---------- Calculer la nouvelle valeur d'action dans le portefeuille (moyenne pondérée) ----------*/
 float CaculNouveauPrix(float prix_1, int quantite_1, float prix_2, int quantite_2)
@@ -653,7 +703,7 @@ void AlerteSeuilDeclenchement()
                 }
                 else
                 {
-                    AchatVente("ordre_seuil_declenchement", action_portefeuille.symbole);
+                    AchatVente("ordre_seuil_declenchement", action_portefeuille.symbole, TYPE_OPERATION_NON_DEFINI, QUANTITE_NON_DEFINI);
                 }
 
                 if (ConfirmationSeuilDeclenchement != 'O' && ConfirmationSeuilDeclenchement != 'N')
@@ -704,11 +754,15 @@ void ModificationCoursBourse()
         {
             fprintf(f1, "%s,%s,%s,%d,%.2f\n", cours_bourse[i].code_isin, cours_bourse[i].symbole, cours_bourse[i].nom_societe, cours_bourse[i].quantite, cours_bourse[i].prix_achat_unit);
         }
+        fclose(f1);
 
         printf("Modification réussie.\n");
 
         // Verification les seuils de declenchement
         AlerteSeuilDeclenchement();
+
+        // Verification des operation en attente
+        VerificationOperationEnAttente();
     }
 }
 /*---------- Comparaison de 2 chiffres décimaux ----------*/
@@ -750,7 +804,7 @@ void CalculerSommeOperation(char *statut, char type_operation, float prix, int q
     }
 }
 /*---------- Operation Achat/Vente ----------*/
-void AchatVente(char *type_ordre, char symbole_input[])
+void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argument, float quantite_argument)
 {
     char type_operation;
     char heure_courante[TAILLE_HEURE];
@@ -777,16 +831,27 @@ void AchatVente(char *type_ordre, char symbole_input[])
         printf("Prix du marche                        : %.2f €\n", action_cours_bourse.prix_achat_unit);
     }
 
-    type_operation = '\0';
-    while (type_operation != 'A' && type_operation != 'V')
+    // Quand il s'agit d'une opération en attente, il faut prendre l'argument quantite_argument comme quantite_input
+    if(strcmp(type_ordre, "operation_en_attente") == 0)
     {
-        printf("Opération (A pour Achat, V pour Vente): ");
-        while (getchar() != '\n');
-        scanf("%c", &type_operation);
-        type_operation = toupper(type_operation);
-        if(type_operation != 'A' && type_operation != 'V')
+        // Le cas ou l'argument type_operation_argument est defini
+        // Usage principal : pour effectuer une operation_en_attente
+        type_operation = type_operation_argument;
+    }
+    else
+    {
+        // Si l'argument type_operation_argument n'est pas défini, il faut demander l'utilisateur à saisir type_operation
+        type_operation = '\0';
+        while (type_operation != 'A' && type_operation != 'V')
         {
-            printf("La réponse attendue est : A pour Achat ou V pour Vente\n");
+            printf("Opération (A pour Achat, V pour Vente): ");
+            while (getchar() != '\n');
+            scanf("%c", &type_operation);
+            type_operation = toupper(type_operation);
+            if(type_operation != 'A' && type_operation != 'V')
+            {
+                printf("La réponse attendue est : A pour Achat ou V pour Vente\n");
+            }
         }
     }
 
@@ -813,8 +878,18 @@ void AchatVente(char *type_ordre, char symbole_input[])
     // Quand il s'agit de la vente a decouvert (type_operation == 'V' && action_portefeuille.quantite == NON_TROUVE), on s'arrete l'operation et s'affiche toute suite le message de l'AMF
     if(type_operation != 'V' || index_action_recherche_portefeuille != NON_TROUVE)
     {
-        printf("Veuillez saisir la quantité           : ");
-        scanf("%d", &quantite_input);
+        // Quand il s'agit d'une opération en attente, il faut prendre l'argument quantite_argument comme quantite_input
+        if(strcmp(type_ordre, "operation_en_attente") == 0)
+        {
+            // Le cas ou l'argument quantite_argument est defini
+            // Usage principal : pour effectuer une operation_en_attente
+            quantite_input = quantite_argument;
+        }
+        else
+        {
+            printf("Veuillez saisir la quantité           : ");
+            scanf("%d", &quantite_input);
+        }
 
         // Quand il s'agit de l'ordre a cours limite, il faut saisir le prix d'achat/vente souhaite
         if(strcmp(type_ordre, "ordre_a_cours_limite") == 0)
@@ -837,7 +912,8 @@ void AchatVente(char *type_ordre, char symbole_input[])
             // 1, Pour l'ordre a cour limité : le prix_input = prix du marché
             // 2, Pour l'ordre au seuil de declenchement : quand le seuil est atteint
             // 3, Pour l'ordre au cours de marche : pas de condition, l'operation est toujours acceptée
-            if (Egal(prix_input, action_cours_bourse.prix_achat_unit) || strcmp(type_ordre, "ordre_au_marche") == 0 || strcmp(type_ordre, "ordre_seuil_declenchement") == 0)
+            // 4, Pour l'operation en attente (une fois qu'elle est passé ici): pas de condition, l'operation est toujours acceptée
+            if (Egal(prix_input, action_cours_bourse.prix_achat_unit) || strcmp(type_ordre, "ordre_au_marche") == 0 || strcmp(type_ordre, "ordre_seuil_declenchement") == 0 || strcmp(type_ordre, "operation_en_attente") == 0)
             {  
                 // Quand le prix correspond au prix du marché, l'opération sera exécutée
                 if (index_action_recherche_portefeuille == NON_TROUVE)
@@ -914,7 +990,8 @@ void AchatVente(char *type_ordre, char symbole_input[])
             // 1, Pour l'ordre a cour limité : le prix_input = prix du marché
             // 2, Pour l'ordre au seuil de declenchement : quand le seuil est atteint
             // 3, Pour l'ordre au cours de marche : pas de condition, l'operation est toujours acceptée
-            if (Egal(prix_input, action_cours_bourse.prix_achat_unit) || strcmp(type_ordre, "ordre_au_marche") == 0 || strcmp(type_ordre, "ordre_seuil_declenchement") == 0)
+            // 4, Pour l'operation en attente (une fois qu'elle est passé ici): pas de condition, l'operation est toujours acceptée
+            if (Egal(prix_input, action_cours_bourse.prix_achat_unit) || strcmp(type_ordre, "ordre_au_marche") == 0 || strcmp(type_ordre, "ordre_seuil_declenchement") == 0 || strcmp(type_ordre, "operation_en_attente") == 0)
             {
                 // Quand le prix correspond au prix du marché, l'opération sera exécutée
                 if (action_portefeuille.quantite >= quantite_input)
@@ -1006,7 +1083,7 @@ void verif_sauvegarde()
 
         while (ConfirmationSauvegarde != 'O' && ConfirmationSauvegarde != 'N')
         {
-            printf("Voulez-vous faire une sauvegarde ? (O pour Oui/N) : ");
+            printf("Voulez-vous faire une sauvegarde ? (O pour Oui/N pour Non) : ");
             while (getchar() != '\n');
             scanf("%c", &ConfirmationSauvegarde);
             ConfirmationSauvegarde = toupper(ConfirmationSauvegarde);
@@ -1042,4 +1119,84 @@ void Sauvegarde()
 
     // Confirmation
     printf("%d lignes sauvegardées !\n", i);
+}
+/*---------- Verification des operation en attente ----------*/
+void VerificationOperationEnAttente()
+{
+    int index_action_portefeuille, index_action_cours_bourse;
+    char type_operation_libelle[20];
+    char ConfirmationOperatioEnAttente;
+    struct operation operation;
+    struct struct_action action_cours_bourse;
+    struct struct_action action_portefeuille;
+    int i;
+
+    for(i = 0; i < nb_operations_en_attente; i++)
+    {
+        operation = operations_en_attente[i];
+
+        if(strcmp(operation.proprietaire_portefeuille, NomProprietaire) == 0 && strcmp(operation.statut, "En_attente") == 0)
+        {
+            // Recherche d'action dans le portefeille
+            index_action_portefeuille = RechercheAction(operation.action.symbole, portefeuille, "portefeuille");
+            action_portefeuille = portefeuille[index_action_portefeuille];
+
+            // Recherche d'action dans le cours de bourse
+            index_action_cours_bourse = RechercheAction(operation.action.symbole, cours_bourse, "cours_bourse");
+            action_cours_bourse = cours_bourse[index_action_cours_bourse];
+
+            // Si le prix du marché est matche avec le prix souhaite de l'operation en attente
+            if (Egal(action_cours_bourse.prix_achat_unit, operation.action.prix_achat_unit))
+            {
+                // Afficher l'operation en attente 
+                printf("Le prix souhaite d'une opération en attente est atteint\n");
+                printf("========================================================== OPERATION EN ATTENTE ===================================================================\n");
+                printf("===================================================================================================================================================\n");
+                printf("|%-15s |%-10s |%-30s |%-10s |%-15s |%-15s |%-20s |%-15s |\n", "Date", "Heure", "Proprietaire_Portefeuille", "Symbole", "Code_ISIN", "Prix", "Quantite", "Type_Operation");
+                printf("===================================================================================================================================================\n");
+                if (operation.type_operation == 'A')
+                {
+                    strcpy(type_operation_libelle, "ACHAT");
+                }
+                else
+                {
+                    strcpy(type_operation_libelle, "VENTE");
+                }
+                printf("|%-15s |%-10s |%-30s |%-10s |%-15s |%-15.2f |%-20d |%-15s |\n", operation.date, operation.heure, operation.proprietaire_portefeuille, operation.action.symbole, operation.action.code_isin, operation.action.prix_achat_unit, operation.action.quantite, type_operation_libelle);
+                printf("===================================================================================================================================================\n");
+
+                // Demande de confirmation
+                ConfirmationOperatioEnAttente = '\0';
+                while (ConfirmationOperatioEnAttente != 'O' && ConfirmationOperatioEnAttente != 'N')
+                {
+                    printf("Souhaitez-vous effectuer cette operation ? (O pour Oui, N pour Non)  : ");
+                    while (getchar() != '\n');
+                    scanf("%c", &ConfirmationOperatioEnAttente);
+                    ConfirmationOperatioEnAttente = toupper(ConfirmationOperatioEnAttente);
+
+                    // Si le gestionaire ne veut pas poursuivre avec l'operation en attente
+                    // On continue la boucle pour verifier le seuil des autres actions
+                    if (ConfirmationOperatioEnAttente == 'N')
+                    {
+                        EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, 0, '\0', "Abandonnee");
+                        strcpy(operation.statut, "Resolu");
+                        operations_en_attente[i] = operation;
+                        MettreAJourDesOperationsEnAttente();
+                    }
+                    else
+                    {
+                        AchatVente("operation_en_attente", action_cours_bourse.symbole, operation.type_operation, operation.action.quantite);
+                        strcpy(operation.statut, "Resolu");
+                        operations_en_attente[i] = operation;
+                        MettreAJourDesOperationsEnAttente();
+                    }
+
+                    if (ConfirmationOperatioEnAttente != 'O' && ConfirmationOperatioEnAttente != 'N')
+                    {
+                        printf("La réponse attendue est : O pour Oui, N pour Non\n");
+                    }
+                }
+            }
+        }
+    }
 }
