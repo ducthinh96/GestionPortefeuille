@@ -57,6 +57,7 @@ void ModificationCoursBourse();
 void ChargerHistorique();
 void Sauvegarde();
 void EnregistrerDansLHistorique(struct struct_action action, float prix, int quantite, char type_operation, char *statut);
+void AffichageHisotrique();
 float CaculNouveauPrix(float prix_1, int quantite_1, float prix_2, int quantite_2);
 int Egal(float f1, float f2);
 void CalculerSommeOperation(char *statut, char type_operation, float prix, int quantite);
@@ -67,7 +68,9 @@ void verif_sauvegarde();
 int nb_actions_portefeuille = 0;
 int nb_actions_cours_bourse = 0;
 int nb_operations_en_attente  = 0;
-int nb_operation_effectuee = 0;
+int nb_operation_effectuee_total = 0;
+int nb_operation_effectue_total_debut_session;
+int nb_operation_effectuee_session = 0;
 int a_sauvegarder = 0; // pas d'operation effectue
 char NomFichierPortefeuille[200]; 
 char date_du_jour[TAILLE_DATE]; // Format : JJ/MM/AAAA
@@ -112,6 +115,7 @@ int main()
         printf("-2- Menu des operations\n");
         printf("-3- Affichage du cours de bourse\n");
         printf("-4- Modification du cours de bourse\n");
+        printf("-5- Affichage de l'historique\n");
         printf("-0- Quitter l'application\n");
         printf("Choix : ");
         scanf("%d", &choix);
@@ -130,6 +134,9 @@ int main()
                 break;
             case 4:
                 ModificationCoursBourse();
+                break;
+            case 5:
+                AffichageHisotrique();
                 break;
             case 0:
                 verif_sauvegarde();
@@ -505,7 +512,7 @@ void ChargerHistorique()
     int retour;
 
     /* --- Boucle de chargement --- */
-    i = nb_operation_effectuee;
+    i = nb_operation_effectuee_total;
     
     // Ouvrir le fichier historique en mode lecture
     f1 = fopen(HISTORIQUE_FILE_NAME, "r");
@@ -523,7 +530,8 @@ void ChargerHistorique()
         }
     }
     fclose(f1);
-    nb_operation_effectuee = i;
+    nb_operation_effectuee_total = i;
+    nb_operation_effectue_total_debut_session = i;
 }
 /*---------- Enregistrer une opération dans l'historique ----------*/
 void EnregistrerDansLHistorique(struct struct_action action, float prix, int quantite, char type_operation, char *statut)
@@ -544,16 +552,56 @@ void EnregistrerDansLHistorique(struct struct_action action, float prix, int qua
     operation.type_operation = type_operation;
     strcpy(operation.proprietaire_portefeuille, NomProprietaire);
     strcpy(operation.statut, statut);
-    historique[nb_operation_effectuee++] = operation;
+    historique[nb_operation_effectuee_total++] = operation;
+    nb_operation_effectuee_session++;
 
     /* --- Boucle de sauvegarde --- */
     f1 = fopen(HISTORIQUE_FILE_NAME, "w");
     fprintf(f1, "Date,Heure,Proprietaire_Portefeuille,Symbole,Code_ISIN,Prix,Quantite,Type_Operation,Statut\n");
-    for(i = 0; i < nb_operation_effectuee; i++)
+    for(i = 0; i < nb_operation_effectuee_total; i++)
     {
         fprintf(f1, "%s,%s,%s,%s,%s,%.2f,%d,%c,%s\n", historique[i].date, historique[i].heure, historique[i].proprietaire_portefeuille, historique[i].action.symbole, historique[i].action.code_isin, historique[i].action.prix_achat_unit, historique[i].action.quantite, historique[i].type_operation, historique[i].statut);
     }
     fclose(f1);
+}
+/*---------- Afficher l'historique des operations ----------*/
+void AffichageHisotrique()
+{
+    int i;
+    struct operation operation;
+    char type_operation_libelle[20];
+
+    if(nb_operation_effectuee_session == 0)
+    {
+        printf("Aucune operation à afficher.\n");
+    }
+    else
+    {
+        printf("===================================================================== HISTORIQUE ===================================================================================\n");
+        printf("====================================================================================================================================================================\n");
+        printf("|%-15s |%-10s |%-30s |%-10s |%-15s |%-15s |%-20s |%-15s |%-15s |\n", "Date", "Heure", "Proprietaire_Portefeuille", "Symbole", "Code_ISIN", "Prix", "Quantite", "Type_Operation", "Statut");
+        printf("====================================================================================================================================================================\n");
+        for(i = nb_operation_effectue_total_debut_session; i < nb_operation_effectuee_total; i++)
+        {
+            operation = historique[i];
+            if(strcmp(operation.proprietaire_portefeuille, NomProprietaire) == 0)
+            {
+                operation = historique[i];
+
+                if(operation.type_operation == 'A')
+                {
+                    strcpy(type_operation_libelle, "ACHAT");
+                }
+                else
+                {
+                    strcpy(type_operation_libelle, "VENTE");
+                }
+
+                printf("|%-15s |%-10s |%-30s |%-10s |%-15s |%-15.2f |%-20d |%-15s |%-15s |\n", operation.date, operation.heure, operation.proprietaire_portefeuille, operation.action.symbole, operation.action.code_isin, operation.action.prix_achat_unit, operation.action.quantite, type_operation_libelle, operation.statut);
+            }
+        }
+        printf("====================================================================================================================================================================\n");
+    }
 }
 /*---------- Calculer la nouvelle valeur d'action dans le portefeuille (moyenne pondérée) ----------*/
 float CaculNouveauPrix(float prix_1, int quantite_1, float prix_2, int quantite_2)
