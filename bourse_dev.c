@@ -612,6 +612,7 @@ float CaculNouveauPrix(float prix_1, int quantite_1, float prix_2, int quantite_
 void AlerteSeuilDeclenchement()
 {
     int i, index_action_cours_bourse;
+    char ConfirmationSeuilDeclenchement;
     float prix_declenchement_superieur, prix_declenchement_inferieur;
     struct struct_action action_portefeuille, action_cours_bourse;
 
@@ -633,8 +634,34 @@ void AlerteSeuilDeclenchement()
             // Le cas où le seuil de déclenchement est atteint
             printf("Le seuil de déclenchement pour l'action %s est atteint\n", action_cours_bourse.symbole);
             printf("Prix dans le portefeuille             : %.2f €\n", action_portefeuille.prix_achat_unit);
+            printf("Prix du marche                        : %.2f €\n", action_cours_bourse.prix_achat_unit);
 
-            AchatVente("ordre_seuil_declenchement", action_portefeuille.symbole);
+            ConfirmationSeuilDeclenchement = '\0';
+            while (ConfirmationSeuilDeclenchement != 'O' && ConfirmationSeuilDeclenchement != 'N')
+            {
+                printf("Souhaitez-vous effectuer une operation ? (O pour Oui, N pour Non)    : ");
+                while (getchar() != '\n');
+                scanf("%c", &ConfirmationSeuilDeclenchement);
+                ConfirmationSeuilDeclenchement = toupper(ConfirmationSeuilDeclenchement);
+
+                // Si le gestionaire ne veut pas poursuivre avec le seuil de declenchement de l'action
+                // Operation 
+                // On continue la boucle pour verifier le seuil des autres actions
+                if (ConfirmationSeuilDeclenchement == 'N')
+                {
+                    EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, 0, '\0', "Abandonnee");
+                }
+                else
+                {
+                    AchatVente("ordre_seuil_declenchement", action_portefeuille.symbole);
+                }
+
+                if (ConfirmationSeuilDeclenchement != 'O' && ConfirmationSeuilDeclenchement != 'N')
+                {
+                    printf("La réponse attendue est : O pour Oui, N pour Non\n");
+                }
+            }
+
         }
     }
 }
@@ -706,14 +733,14 @@ void CalculerSommeOperation(char *statut, char type_operation, float prix, int q
 {
     float somme_operation;
 
-    if(strcmp(statut, "Reussi"))
+    if(strcmp(statut, "Reussi") == 0)
     {
         // Uniquement quand l'operation est reussie
         somme_operation = prix * quantite;
         if(type_operation == 'A')
         {
             // Somme de l'achat
-            printf("Somme à payer                         : %.2f", somme_operation);
+            printf("Somme à payer                         : %.2f\n", somme_operation);
         }
         else
         {
@@ -744,7 +771,11 @@ void AchatVente(char *type_ordre, char symbole_input[])
     index_action_recherche_portefeuille = RechercheAction(symbole_input, portefeuille, "portefeuille");
     action_portefeuille = portefeuille[index_action_recherche_portefeuille];
 
-    printf("Prix du marche                        : %.2f €\n", action_cours_bourse.prix_achat_unit);
+    // On n'affiche pas le prix pour l'ordre au seuil de declenchement car il est deja affiche dans la module de l'ordre
+    if(strcmp(type_ordre, "ordre_seuil_declenchement") != 0)
+    {
+        printf("Prix du marche                        : %.2f €\n", action_cours_bourse.prix_achat_unit);
+    }
 
     type_operation = '\0';
     while (type_operation != 'A' && type_operation != 'V')
@@ -766,19 +797,37 @@ void AchatVente(char *type_ordre, char symbole_input[])
     }
     else
     {
-        printf("Opération choisie                     : Vente\n");
-        printf("Quantité disponbile                   : %d\n", action_portefeuille.quantite);
+        if(index_action_recherche_portefeuille != NON_TROUVE)
+        {
+            printf("Opération choisie                     : Vente\n");
+            printf("Quantité disponbile                   : %d\n", action_portefeuille.quantite);
+        }
+        else
+        {
+            // Le cas de la Vente a decouvert
+            printf("Opération choisie                     : Vente\n");
+            printf("Quantité disponbile                   : 0\n");
+        }
     }
     
-    printf("Veuillez saisir la quantité           : ");
-    scanf("%d", &quantite_input);
-
-    // Quand il s'agit de l'ordre a cours limite, il faut saisir le prix d'achat/vente souhaite
-    if(strcmp(type_ordre, "ordre_a_cours_limite") == 0)
+    // Quand il s'agit de la vente a decouvert (type_operation == 'V' && action_portefeuille.quantite == NON_TROUVE), on s'arrete l'operation et s'affiche toute suite le message de l'AMF
+    if(type_operation != 'V' || index_action_recherche_portefeuille != NON_TROUVE)
     {
-        printf("Veuillez saisir le prix               : ");
-        scanf("%f", &prix_input);
-    }   
+        printf("Veuillez saisir la quantité           : ");
+        scanf("%d", &quantite_input);
+
+        // Quand il s'agit de l'ordre a cours limite, il faut saisir le prix d'achat/vente souhaite
+        if(strcmp(type_ordre, "ordre_a_cours_limite") == 0)
+        {
+            printf("Veuillez saisir le prix               : ");
+            scanf("%f", &prix_input);
+        }   
+    }
+    else
+    {
+        quantite_input = 0;
+    }
+
     
     if (type_operation == 'A')
     { // ACHAT
@@ -897,6 +946,7 @@ void AchatVente(char *type_ordre, char symbole_input[])
                             if (ConfirmationVente == 'N')
                             {
                                 printf("Opération abandonnée...\n");
+                                EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, quantite_input, type_operation, "Abandonnee");
                                 return; // Annuler la vente et revenir au menu précédent
                             }
                         }
@@ -919,7 +969,7 @@ void AchatVente(char *type_ordre, char symbole_input[])
         }
     }
     // Calculer et annoncer la somme de l'achat et de la vente
-    CalculerSommeOperation(statut, type_operation, prix_input, quantite_input);
+    CalculerSommeOperation(statut, type_operation, action_cours_bourse.prix_achat_unit, quantite_input);
 
     // Enregistrer l'operation dans l'historique
     if(strcmp(type_ordre, "ordre_a_cours_limite") == 0)
