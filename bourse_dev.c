@@ -414,7 +414,7 @@ void AffichageCoursDeBourse()
     for(i = 0; i < nb_actions_cours_bourse; i++)
     { // boucle affichage
         action = cours_bourse[i];
-        printf("|%-15s |%-10s |%-35s |%-15f |%-15d|\n", action.code_isin, action.symbole, action.nom_societe, action.prix_achat_unit, action.quantite);
+        printf("|%-15s |%-10s |%-35s |%-15.2f |%-15d|\n", action.code_isin, action.symbole, action.nom_societe, action.prix_achat_unit, action.quantite);
     }
     printf("====================================================================================================\n");
     printf("%d indices chargée(s) !\n", nb_actions_cours_bourse);
@@ -499,6 +499,7 @@ void MettreOperationEnAttente(struct struct_action action, float prix, int quant
     strcpy(operation.heure, heure_courante);
     operation.type_operation = type_operation;
     strcpy(operation.proprietaire_portefeuille, NomProprietaire);
+    strcpy(operation.statut, "En_attente");
     operations_en_attente[nb_operations_en_attente++] = operation;
     nb_operation_en_attente_session++;
 
@@ -1116,6 +1117,7 @@ void Sauvegarde()
     {
         fprintf(f1, "%s,%s,%s,%.2f,%d,%.2f\n", portefeuille[i].code_isin, portefeuille[i].symbole,portefeuille[i].nom_societe, portefeuille[i].prix_achat_unit, portefeuille[i].quantite, portefeuille[i].seuil_declenchement);
     }
+    fclose(f1);
 
     // Confirmation
     printf("%d lignes sauvegardées !\n", i);
