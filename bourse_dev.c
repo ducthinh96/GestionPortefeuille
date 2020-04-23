@@ -55,17 +55,21 @@ void ChargerOperationEnAttente();
 void AffichageCoursDeBourse();
 void ModificationCoursBourse();
 void ChargerHistorique();
+void Sauvegarde();
 void EnregistrerDansLHistorique(struct struct_action action, float prix, int quantite, char type_operation, char *statut);
 float CaculNouveauPrix(float prix_1, int quantite_1, float prix_2, int quantite_2);
 int Egal(float f1, float f2);
 void CalculerSommeOperation(char *statut, char type_operation, float prix, int quantite);
 void AchatVente(char *type_ordre, char symbole_input[]);
+void verif_sauvegarde();
 
 /* Déclaration des variables globales */
 int nb_actions_portefeuille = 0;
 int nb_actions_cours_bourse = 0;
 int nb_operations_en_attente  = 0;
 int nb_operation_effectuee = 0;
+int a_sauvegarder = 0; // pas d'operation effectue
+char NomFichierPortefeuille[200]; 
 char date_du_jour[TAILLE_DATE]; // Format : JJ/MM/AAAA
 char NomProprietaire[100];
 struct struct_action portefeuille[NOMBRE_MAX_ACTIONS];
@@ -128,6 +132,7 @@ int main()
                 ModificationCoursBourse();
                 break;
             case 0:
+                verif_sauvegarde();
                 printf("Au revoir !\n");
                 break;
             default:
@@ -172,36 +177,36 @@ void chargement() // ask for person name not the file name
     int i;
     struct struct_action action;
     FILE *f1;
-    char NomFichier[200], NomProprietaireInput[100], PortefeuilleType[20];
+    char PortefeuilleType[20];
     char bidon[100]; // caractere pour consommer le retour à la ligne
     char ligne[TAILLE_LIGNE];
     int retour;
 
-    printf("Nom du propriétaire de portefeuille : ");
+    printf("Nom du propriétaire de portefeuille   : ");
     scanf("%s", NomProprietaire);
     conv_maj(NomProprietaire);
     while(strcmp(PortefeuilleType, "PEA") != 0 && strcmp(PortefeuilleType, "COMPTE_TITRE") != 0)
     {
-        printf("Portefeille type (PEA/COMPTE_TITRE) : ");
+        printf("Portefeille type (PEA/COMPTE_TITRE)   : ");
         scanf("%s", PortefeuilleType);
         conv_maj(PortefeuilleType);
         if(strcmp(PortefeuilleType, "PEA") != 0 && strcmp(PortefeuilleType, "COMPTE_TITRE") != 0)
         {
-            printf("La réponse attendue est             : PEA/COMPTE_TITRE\n");
+            printf("La réponse attendue est               : PEA/COMPTE_TITRE\n");
         }
     }
 
     // Nom du fichier à charger à partir de NomProprietaire et PortefeuilleType (format : NomProprietaireInput_PortefeuilleType.csv)
-    strcpy(NomFichier, NomProprietaire);
-    strcat(NomFichier, "_");
-    strcat(NomFichier, PortefeuilleType);
-    strcat(NomFichier, ".csv");
+    strcpy(NomFichierPortefeuille, NomProprietaire);
+    strcat(NomFichierPortefeuille, "_");
+    strcat(NomFichierPortefeuille, PortefeuilleType);
+    strcat(NomFichierPortefeuille, ".csv");
 
     // Init le compteur i
     i = nb_actions_portefeuille;
     
     // Ouvrir le fichier de portefeuille en mode Lecture
-    f1 = fopen(NomFichier, "r");
+    f1 = fopen(NomFichierPortefeuille, "r");
 
     // Ignorer la premiere ligne qui est réservée pour les en-têtes
     fgets(ligne, sizeof ligne, f1);
@@ -255,11 +260,11 @@ void affichage()
             {
                 if(action.seuil_declenchement != PAS_DE_SEUIL_DECLENCHEMNT)
                 {
-                    printf("|%-15s |%-10s |%-35s |%-15f |%-15d |%-20f|\n", action.code_isin, action.symbole, action.nom_societe, action.prix_achat_unit, action.quantite, action.seuil_declenchement);
+                    printf("|%-15s |%-10s |%-35s |%-15.2f |%-15d |%-20.2f|\n", action.code_isin, action.symbole, action.nom_societe, action.prix_achat_unit, action.quantite, action.seuil_declenchement);
                 }
                 else
                 { // Si le seuil de declenchement n'est pas defini, afficher Non_Defini à la place de 999
-                    printf("|%-15s |%-10s |%-35s |%-15f |%-15d |%-20s|\n", action.code_isin, action.symbole, action.nom_societe, action.prix_achat_unit, action.quantite, "Non_Defini");
+                    printf("|%-15s |%-10s |%-35s |%-15.2f |%-15d |%-20s|\n", action.code_isin, action.symbole, action.nom_societe, action.prix_achat_unit, action.quantite, "Non_Defini");
                 }
             }
         }
@@ -485,7 +490,7 @@ void MettreOperationEnAttente(struct struct_action action, float prix, int quant
     f1 = fopen(OPERATIONS_EN_ATTENTE_FILE_NAME, "w");
     for(i = 0; i < nb_operations_en_attente; i++)
     {
-        fprintf(f1, "%s,%s,%s,%s,%s,%f,%d,%c\n", operations_en_attente[i].date, operations_en_attente[i].heure, operations_en_attente[i].proprietaire_portefeuille, operations_en_attente[i].action.symbole, operations_en_attente[i].action.code_isin, operations_en_attente[i].action.prix_achat_unit, operations_en_attente[i].action.quantite, operations_en_attente[i].type_operation);
+        fprintf(f1, "%s,%s,%s,%s,%s,%.2f,%d,%c\n", operations_en_attente[i].date, operations_en_attente[i].heure, operations_en_attente[i].proprietaire_portefeuille, operations_en_attente[i].action.symbole, operations_en_attente[i].action.code_isin, operations_en_attente[i].action.prix_achat_unit, operations_en_attente[i].action.quantite, operations_en_attente[i].type_operation);
     }
     fclose(f1);
 }
@@ -546,7 +551,7 @@ void EnregistrerDansLHistorique(struct struct_action action, float prix, int qua
     fprintf(f1, "Date,Heure,Proprietaire_Portefeuille,Symbole,Code_ISIN,Prix,Quantite,Type_Operation,Statut\n");
     for(i = 0; i < nb_operation_effectuee; i++)
     {
-        fprintf(f1, "%s,%s,%s,%s,%s,%f,%d,%c,%s\n", historique[i].date, historique[i].heure, historique[i].proprietaire_portefeuille, historique[i].action.symbole, historique[i].action.code_isin, historique[i].action.prix_achat_unit, historique[i].action.quantite, historique[i].type_operation, historique[i].statut);
+        fprintf(f1, "%s,%s,%s,%s,%s,%.2f,%d,%c,%s\n", historique[i].date, historique[i].heure, historique[i].proprietaire_portefeuille, historique[i].action.symbole, historique[i].action.code_isin, historique[i].action.prix_achat_unit, historique[i].action.quantite, historique[i].type_operation, historique[i].statut);
     }
     fclose(f1);
 }
@@ -579,7 +584,7 @@ void AlerteSeuilDeclenchement()
         {
             // Le cas où le seuil de déclenchement est atteint
             printf("Le seuil de déclenchement pour l'action %s est atteint\n", action_cours_bourse.symbole);
-            printf("Prix dans le portefeuille             : %f €\n", action_portefeuille.prix_achat_unit);
+            printf("Prix dans le portefeuille             : %.2f €\n", action_portefeuille.prix_achat_unit);
 
             AchatVente("ordre_seuil_declenchement", action_portefeuille.symbole);
         }
@@ -590,8 +595,9 @@ void ModificationCoursBourse()
 {
     char symbole_input[TAILLE_CODE_ISIN];
     char heure_courante[TAILLE_HEURE];
-    int  index_action_recherche_cours_bourse;
+    int  i, index_action_recherche_cours_bourse;
     float prix_input;
+    FILE *f1;
     struct struct_action action_cours_bourse;
 
     printf("================ MODIFICATION DU COURS DE BOURSE ================\n");
@@ -610,11 +616,20 @@ void ModificationCoursBourse()
         action_cours_bourse = cours_bourse[index_action_recherche_cours_bourse];
 
         // Modification du prix du cours de bourse
-        printf("Le prix actuel                        : %f\n", action_cours_bourse.prix_achat_unit);
+        printf("Le prix actuel                        : %.2f\n", action_cours_bourse.prix_achat_unit);
         printf("Veuillez saisir le nouveau prix       : ");
         scanf("%f", &prix_input);
         action_cours_bourse.prix_achat_unit = prix_input;
         cours_bourse[index_action_recherche_cours_bourse] = action_cours_bourse;
+
+        // Sauvegarder la modfication
+        f1 = fopen(COURS_DE_BOURSE_FILE_NAME, "w");
+        fprintf(f1, "Code_ISIN,Symbole,Nom_Societe,Quantite,Prix\n");
+        for(i = 0; i < nb_actions_cours_bourse; i++)
+        {
+            fprintf(f1, "%s,%s,%s,%d,%.2f\n", cours_bourse[i].code_isin, cours_bourse[i].symbole, cours_bourse[i].nom_societe, cours_bourse[i].quantite, cours_bourse[i].prix_achat_unit);
+        }
+
         printf("Modification réussie.\n");
 
         // Verification les seuils de declenchement
@@ -659,7 +674,7 @@ void CalculerSommeOperation(char *statut, char type_operation, float prix, int q
         }
     }
 }
-/*---------- Calculer et annoncer la somme d'operation (achat/vente) ----------*/
+/*---------- Operation Achat/Vente ----------*/
 void AchatVente(char *type_ordre, char symbole_input[])
 {
     char type_operation;
@@ -681,7 +696,7 @@ void AchatVente(char *type_ordre, char symbole_input[])
     index_action_recherche_portefeuille = RechercheAction(symbole_input, portefeuille, "portefeuille");
     action_portefeuille = portefeuille[index_action_recherche_portefeuille];
 
-    printf("Prix du marche                        : %f €\n", action_cours_bourse.prix_achat_unit);
+    printf("Prix du marche                        : %.2f €\n", action_cours_bourse.prix_achat_unit);
 
     type_operation = '\0';
     while (type_operation != 'A' && type_operation != 'V')
@@ -710,6 +725,7 @@ void AchatVente(char *type_ordre, char symbole_input[])
     printf("Veuillez saisir la quantité           : ");
     scanf("%d", &quantite_input);
 
+    // Quand il s'agit de l'ordre a cours limite, il faut saisir le prix d'achat/vente souhaite
     if(strcmp(type_ordre, "ordre_a_cours_limite") == 0)
     {
         printf("Veuillez saisir le prix               : ");
@@ -720,6 +736,10 @@ void AchatVente(char *type_ordre, char symbole_input[])
     { // ACHAT
         if (quantite_input <= action_cours_bourse.quantite)
         {
+            // On se rend compte que l'achat et la vente est le même entre les 3 ordres (uniquement dans le cadre de notre programme) quand
+            // 1, Pour l'ordre a cour limité : le prix_input = prix du marché
+            // 2, Pour l'ordre au seuil de declenchement : quand le seuil est atteint
+            // 3, Pour l'ordre au cours de marche : pas de condition, l'operation est toujours acceptée
             if (Egal(prix_input, action_cours_bourse.prix_achat_unit) || strcmp(type_ordre, "ordre_au_marche") == 0 || strcmp(type_ordre, "ordre_seuil_declenchement") == 0)
             {  
                 // Quand le prix correspond au prix du marché, l'opération sera exécutée
@@ -727,6 +747,7 @@ void AchatVente(char *type_ordre, char symbole_input[])
                 {
                     // Saisie d'un seuil de déclenchement
                     printf("Achat de %d actions avec succès.\n", quantite_input);
+                    ConfirmationSeuilDeclenchement = '\0';
                     while (ConfirmationSeuilDeclenchement != 'O' && ConfirmationSeuilDeclenchement != 'N')
                     {
                         printf("Voulez-vous définir un seuil de déclenchement : (O pour Oui, N pour Non) : ");
@@ -792,6 +813,10 @@ void AchatVente(char *type_ordre, char symbole_input[])
         }
         else
         {
+            // On se rend compte que l'achat et la vente est le même entre les 3 ordres (uniquement dans le cadre de notre programme) quand
+            // 1, Pour l'ordre a cour limité : le prix_input = prix du marché
+            // 2, Pour l'ordre au seuil de declenchement : quand le seuil est atteint
+            // 3, Pour l'ordre au cours de marche : pas de condition, l'operation est toujours acceptée
             if (Egal(prix_input, action_cours_bourse.prix_achat_unit) || strcmp(type_ordre, "ordre_au_marche") == 0 || strcmp(type_ordre, "ordre_seuil_declenchement") == 0)
             {
                 // Quand le prix correspond au prix du marché, l'opération sera exécutée
@@ -808,6 +833,7 @@ void AchatVente(char *type_ordre, char symbole_input[])
                 else
                 {
                     // Si le portefeuill ne contient pas suffisamment d'actions à vendre, la quantié à vendre sera enlevée du portefeuille, l'action sera supprimée du portefeuille et cette quantité sera ajoutée dans le cours de bourse
+                    ConfirmationVente = '\0';
                     while(ConfirmationVente != 'O' && ConfirmationVente != 'N')
                     {
                         printf("Vous disposez de quantité insuffisante, souhaitez-vous continuer la vente ? (O pour Oui, N pour Non) : "); // Si oui, la vente porte sur la quantité disponible. Si non, on ne fais rien.
@@ -862,4 +888,60 @@ void AchatVente(char *type_ordre, char symbole_input[])
     // Afficher la date et l'heure d'operation
     GetHeureCourante(heure_courante);
     printf("Date de l'opération                   : %s %s\n", date_du_jour, heure_courante);
+
+    // Modification de portefeuille => à sauvegarder
+    if(strcmp(statut, "Reussi") == 0)
+    {
+        a_sauvegarder = 1;
+    }
+}
+/*-----------------------------------------------------------*/
+void verif_sauvegarde()
+{
+    char ConfirmationSauvegarde;
+
+    if (a_sauvegarder)
+    {
+        printf("Votre portefeuille a été modifié.\n");
+
+        ConfirmationSauvegarde = '\0';
+
+        while (ConfirmationSauvegarde != 'O' && ConfirmationSauvegarde != 'N')
+        {
+            printf("Voulez-vous faire une sauvegarde ? (O pour Oui/N) : ");
+            while (getchar() != '\n');
+            scanf("%c", &ConfirmationSauvegarde);
+            ConfirmationSauvegarde = toupper(ConfirmationSauvegarde);
+            if (ConfirmationSauvegarde != 'O' && ConfirmationSauvegarde != 'N')
+            {
+                printf("La réponse attendue est : O pour Oui, N pour Non\n");
+            }
+        }
+
+        if(ConfirmationSauvegarde == 'O')
+        {
+            Sauvegarde();
+        }
+    }
+}
+/*---------- Sauvegarder l'etat du portefeuille au cas ou il y avait des operations effectues ----------*/
+void Sauvegarde()
+{
+    int i;
+    FILE *f1;
+
+    // Ouvrir le fichier en mode "Ecriture"
+    f1 = fopen(NomFichierPortefeuille, "w");
+
+    // Ecrire l'en-tete
+    fprintf(f1, "Code_ISIN,Symbole,Nom_Société,Prix_ou_Valeur,Quantité,Seuil_Declenchement\n");
+
+    // Boucle de sauvegarde
+    for(i = 0; i < nb_actions_portefeuille; i++)
+    {
+        fprintf(f1, "%s,%s,%s,%.2f,%d,%.2f\n", portefeuille[i].code_isin, portefeuille[i].symbole,portefeuille[i].nom_societe, portefeuille[i].prix_achat_unit, portefeuille[i].quantite, portefeuille[i].seuil_declenchement);
+    }
+
+    // Confirmation
+    printf("%d lignes sauvegardées !\n", i);
 }
