@@ -834,7 +834,7 @@ void CalculerSommeOperation(char *statut, char type_operation, float prix, int q
             // Somme de l'achat
             printf("Somme à payer                         : %.2f\n", somme_operation);
             printf("Frais d'operation                     : %.2f\n", frais_courtage_operation);
-            valorisation_portefeuille.somme_titres_detenus -= somme_operation;
+            valorisation_portefeuille.somme_titres_detenus += somme_operation;
             valorisation_portefeuille.solde -= (somme_operation + frais_courtage_operation); 
         }
         else
@@ -842,7 +842,7 @@ void CalculerSommeOperation(char *statut, char type_operation, float prix, int q
             // Somme de la vente
             printf("Somme à collecter                     : %.2f\n", somme_operation);
             printf("Frais d'operation                     : %.2f\n", frais_courtage_operation);
-            valorisation_portefeuille.somme_titres_detenus += somme_operation;
+            valorisation_portefeuille.somme_titres_detenus -= somme_operation;
             valorisation_portefeuille.solde += (somme_operation - frais_courtage_operation); 
         }
         MettreAJourValorisationPortefeuille();
@@ -851,7 +851,7 @@ void CalculerSommeOperation(char *statut, char type_operation, float prix, int q
 /*---------- Calculer la nouvelle solde si l'operation serait acceptée ----------*/
 float CalculerNouvelleSolde(char type_operation, float prix, int quantite)
 {
-    float somme_operation, frais_courtage_operation, frais_operation_pourcentage, nouvelle_solde;
+    float somme_operation, frais_courtage_operation, frais_operation_pourcentage, nouveau_solde;
 
     somme_operation = prix * quantite;
     
@@ -871,15 +871,15 @@ float CalculerNouvelleSolde(char type_operation, float prix, int quantite)
     if(type_operation == 'A')
     {
         // ACHAT
-        nouvelle_solde = valorisation_portefeuille.solde - (somme_operation + frais_courtage_operation); 
+        nouveau_solde = valorisation_portefeuille.solde - (somme_operation + frais_courtage_operation); 
     }
     else
     {
         // VENTE
-        nouvelle_solde = valorisation_portefeuille.solde + (somme_operation - frais_courtage_operation); 
+        nouveau_solde = valorisation_portefeuille.solde + (somme_operation - frais_courtage_operation); 
     }
     
-    return nouvelle_solde;
+    return nouveau_solde;
 }
 /*---------- Operation Achat/Vente ----------*/
 void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argument, float quantite_argument)
@@ -890,7 +890,7 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
     char ConfirmationVente; // O pour Oui, N pour Non
     char ConfirmationSeuilDeclenchement; // O pour Oui, N pour Non
     float prix_input;
-    float nouvelle_solde;
+    float nouveau_solde;
     float seuil_declenchement_input;
     int quantite_input, index_action_recherche_cours_bourse, index_action_recherche_portefeuille;
     struct struct_action action_portefeuille;
@@ -903,6 +903,14 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
     // Recherche l'action dans le portefeuill
     index_action_recherche_portefeuille = RechercheAction(symbole_input, portefeuille, "portefeuille");
     action_portefeuille = portefeuille[index_action_recherche_portefeuille];
+
+    // Si l'utilisateur saisie un symbole d'action qui n'esxiste pas dans le cours de bourse
+    // Il faut afficher un message d'erreur et revenir au menu d'operation
+    if(index_action_recherche_cours_bourse == NON_TROUVE)
+    {
+        printf("L'action que vous recherchez n'esxiste pas dans le cours de bourse. Veuillez réessayer...\n");
+        return;
+    }
 
     // On n'affiche pas le prix pour l'ordre au seuil de declenchement car il est deja affiche dans la module de l'ordre
     if(strcmp(type_ordre, "ordre_seuil_declenchement") != 0)
@@ -985,18 +993,18 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
     // Calculer la nouvelle solde si l'operation serait acceptee
     if(strcmp(type_ordre, "ordre_a_cours_limite") == 0)
     {
-        nouvelle_solde = CalculerNouvelleSolde(type_operation, prix_input, quantite_input);
+        nouveau_solde = CalculerNouvelleSolde(type_operation, prix_input, quantite_input);
     }
     else
     {
-        nouvelle_solde = CalculerNouvelleSolde(type_operation, action_cours_bourse.prix_achat_unit, quantite_input);
+        nouveau_solde = CalculerNouvelleSolde(type_operation, action_cours_bourse.prix_achat_unit, quantite_input);
     }
 
     // Quand il s'agit de l'achat et la somme à payer va faire dépasser le montant de l'investissement
     // On s'arrete l'operation et retourne au menu des operation
-    if(type_operation == 'A' && nouvelle_solde < 0)
+    if(type_operation == 'A' && nouveau_solde < 0)
     {
-        printf("Votre montant d'investissement sera depasse de %.2f €. Vous ne pouvez pas poursuivre avec cet achat\n", -nouvelle_solde);
+        printf("Votre montant d'investissement sera depasse de %.2f €. La liquidité disponible sur votre portefeuille ne permet pas de conclure l'achat\n", -nouveau_solde);
         return;
     }
     
