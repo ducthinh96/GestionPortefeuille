@@ -9,6 +9,7 @@
 #define TAILLE_SYMBOLE 20
 #define NOMBRE_MAX_ACTIONS 1000
 #define NOMBRE_MAX_OPERATIONS 1000
+#define NOMBRE_MAX_PORTEFEUILLE 100
 #define TAILLE_DATE 20
 #define TAILLE_HEURE 10
 #define TAILLE_STATUT_OPERATION 20
@@ -18,6 +19,7 @@
 #define COURS_DE_BOURSE_FILE_NAME "COURS_DE_BOURSE.csv"
 #define OPERATIONS_EN_ATTENTE_FILE_NAME "OPERATIONS_EN_ATTENTE.csv"
 #define HISTORIQUE_FILE_NAME "HISTORIQUE.csv"
+#define VALORISATION_FILE_NAME "VALO_PORTEFEUILLE.csv"
 
 /* Déclation de la structure globale */
 struct struct_action
@@ -38,6 +40,16 @@ struct operation
     char type_operation; // A pour Achat, V pour Vente
     char statut[TAILLE_STATUT_OPERATION];
 };
+struct valorisation
+{
+    char proprietaire_portefeuille[100];
+    float montant_investissement;
+    int frais_ouverture;
+    float somme_titres_detenus;
+    float frais_courtage;
+    float solde;
+};
+
 
 /*---------- Déclaration préliminaires ----------*/
 void MenuPortefeuille();
@@ -68,6 +80,9 @@ void verif_sauvegarde();
 void AfficherOperationsEnAttente();
 void MettreAJourDesOperationsEnAttente();
 void VerificationOperationEnAttente();
+void ChargerValorisationPortefeuille();
+void MettreAJourValorisationPortefeuille();
+float CalculerNouvelleSolde(char type_operation, float prix, int quantite);
 
 /* Déclaration des variables globales */
 int nb_actions_portefeuille = 0;
@@ -77,14 +92,19 @@ int nb_operation_en_attente_session = 0;
 int nb_operation_effectuee_total = 0;
 int nb_operation_effectue_total_debut_session;
 int nb_operation_effectuee_session = 0;
+int nb_portefeuilles = 0;
+int index_portefeuille_tab_valorisation;
 int a_sauvegarder = 0; // pas d'operation effectue
 char NomFichierPortefeuille[200]; 
 char date_du_jour[TAILLE_DATE]; // Format : JJ/MM/AAAA
 char NomProprietaire[100];
+char PortefeuilleType[20];
 struct struct_action portefeuille[NOMBRE_MAX_ACTIONS];
 struct struct_action cours_bourse[NOMBRE_MAX_ACTIONS];
 struct operation operations_en_attente[NOMBRE_MAX_OPERATIONS];
 struct operation historique[NOMBRE_MAX_OPERATIONS];
+struct valorisation tab_valorisation[NOMBRE_MAX_PORTEFEUILLE];
+struct valorisation valorisation_portefeuille;
 
 /*---------- Programme principale ----------*/
 int main()
@@ -103,6 +123,9 @@ int main()
 
     // Chargement de l'historique
     ChargerHistorique();
+
+    // Charger la valorisation du portefeuille
+    ChargerValorisationPortefeuille();
 
     // Verification les seuils de declenchement
     AlerteSeuilDeclenchement();
@@ -194,7 +217,6 @@ void chargement() // ask for person name not the file name
     int i;
     struct struct_action action;
     FILE *f1;
-    char PortefeuilleType[20];
     char bidon[100]; // caractere pour consommer le retour à la ligne
     char ligne[TAILLE_LIGNE];
     int retour;
@@ -632,7 +654,7 @@ void AffichageHisotrique()
     printf("====================================================================================================================================================================\n");
     printf("|%-15s |%-10s |%-30s |%-10s |%-15s |%-15s |%-20s |%-15s |%-15s |\n", "Date", "Heure", "Proprietaire_Portefeuille", "Symbole", "Code_ISIN", "Prix", "Quantite", "Type_Operation", "Statut");
     printf("====================================================================================================================================================================\n");
-    for(i = nb_operation_effectue_total_debut_session; i < nb_operation_effectuee_total; i++)
+    for(i = 0; i < nb_operation_effectuee_total; i++)
     {
         operation = historique[i];
         if(strcmp(operation.proprietaire_portefeuille, NomProprietaire) == 0)
@@ -786,23 +808,78 @@ int Egal(float f1, float f2)
 /*---------- Calculer et annoncer la somme d'operation (achat/vente) ----------*/
 void CalculerSommeOperation(char *statut, char type_operation, float prix, int quantite)
 {
-    float somme_operation;
+    float somme_operation, frais_courtage_operation, frais_operation_pourcentage;
 
     if(strcmp(statut, "Reussi") == 0)
     {
         // Uniquement quand l'operation est reussie
         somme_operation = prix * quantite;
+        
+        if(strcmp(PortefeuilleType, "PEA") == 0)
+        {
+            // 0.5% pour PEA
+            frais_operation_pourcentage = 0.005;
+        }
+        else
+        {
+            // 0.4% pour PEA
+            frais_operation_pourcentage = 0.004;
+        }
+
+        frais_courtage_operation = somme_operation * frais_operation_pourcentage;
+        valorisation_portefeuille.frais_courtage += frais_courtage_operation;
+
         if(type_operation == 'A')
         {
             // Somme de l'achat
             printf("Somme à payer                         : %.2f\n", somme_operation);
+            printf("Frais d'operation                     : %.2f\n", frais_courtage_operation);
+            valorisation_portefeuille.somme_titres_detenus -= somme_operation;
+            valorisation_portefeuille.solde -= (somme_operation + frais_courtage_operation); 
         }
         else
         {
             // Somme de la vente
             printf("Somme à collecter                     : %.2f\n", somme_operation);
+            printf("Frais d'operation                     : %.2f\n", frais_courtage_operation);
+            valorisation_portefeuille.somme_titres_detenus += somme_operation;
+            valorisation_portefeuille.solde += (somme_operation - frais_courtage_operation); 
         }
+        MettreAJourValorisationPortefeuille();
     }
+}
+/*---------- Calculer la nouvelle solde si l'operation serait acceptée ----------*/
+float CalculerNouvelleSolde(char type_operation, float prix, int quantite)
+{
+    float somme_operation, frais_courtage_operation, frais_operation_pourcentage, nouvelle_solde;
+
+    somme_operation = prix * quantite;
+    
+    if(strcmp(PortefeuilleType, "PEA") == 0)
+    {
+        // 0.5% pour PEA
+        frais_operation_pourcentage = 0.005;
+    }
+    else
+    {
+        // 0.4% pour PEA
+        frais_operation_pourcentage = 0.004;
+    }
+
+    frais_courtage_operation = somme_operation * frais_operation_pourcentage;
+
+    if(type_operation == 'A')
+    {
+        // ACHAT
+        nouvelle_solde = valorisation_portefeuille.solde - (somme_operation + frais_courtage_operation); 
+    }
+    else
+    {
+        // VENTE
+        nouvelle_solde = valorisation_portefeuille.solde + (somme_operation - frais_courtage_operation); 
+    }
+    
+    return nouvelle_solde;
 }
 /*---------- Operation Achat/Vente ----------*/
 void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argument, float quantite_argument)
@@ -813,6 +890,7 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
     char ConfirmationVente; // O pour Oui, N pour Non
     char ConfirmationSeuilDeclenchement; // O pour Oui, N pour Non
     float prix_input;
+    float nouvelle_solde;
     float seuil_declenchement_input;
     int quantite_input, index_action_recherche_cours_bourse, index_action_recherche_portefeuille;
     struct struct_action action_portefeuille;
@@ -904,6 +982,23 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
         quantite_input = 0;
     }
 
+    // Calculer la nouvelle solde si l'operation serait acceptee
+    if(strcmp(type_ordre, "ordre_a_cours_limite") == 0)
+    {
+        nouvelle_solde = CalculerNouvelleSolde(type_operation, prix_input, quantite_input);
+    }
+    else
+    {
+        nouvelle_solde = CalculerNouvelleSolde(type_operation, action_cours_bourse.prix_achat_unit, quantite_input);
+    }
+
+    // Quand il s'agit de l'achat et la somme à payer va faire dépasser le montant de l'investissement
+    // On s'arrete l'operation et retourne au menu des operation
+    if(type_operation == 'A' && nouvelle_solde < 0)
+    {
+        printf("Votre montant d'investissement sera depasse de %.2f €. Vous ne pouvez pas poursuivre avec cet achat\n", -nouvelle_solde);
+        return;
+    }
     
     if (type_operation == 'A')
     { // ACHAT
@@ -1202,3 +1297,58 @@ void VerificationOperationEnAttente()
         }
     }
 }
+/*-----------------------------------------------------------*/
+void ChargerValorisationPortefeuille()
+{
+    int i, retour;
+    char ligne[1000];
+    char NomPortefeuille[100];
+    struct valorisation valorisation;
+    FILE *f1;
+
+    strcpy(NomPortefeuille, NomProprietaire);
+    strcat(NomPortefeuille, "_");
+    strcat(NomPortefeuille, PortefeuilleType);
+
+    f1 = fopen(VALORISATION_FILE_NAME, "r");
+
+    // Boucle de chargement utilisant fgets() & sscanf()
+    i = 0;
+    fgets(ligne, sizeof ligne, f1);
+    while(!feof(f1))
+    {
+        fgets(ligne, sizeof ligne, f1);
+        retour = sscanf(ligne, "%[^,],%f,%d,%f,%f,%f", valorisation.proprietaire_portefeuille, &valorisation.montant_investissement, &valorisation.frais_ouverture, &valorisation.somme_titres_detenus, &valorisation.frais_courtage, &valorisation.solde);
+        if(retour != EOF)
+        {
+            if(strcmp(valorisation.proprietaire_portefeuille, NomPortefeuille) == 0)
+            {
+                valorisation_portefeuille = valorisation;
+                index_portefeuille_tab_valorisation = i;
+            }
+            tab_valorisation[i++] = valorisation;
+        }
+    }
+    fclose(f1);
+
+    nb_portefeuilles = i;
+}
+/*-----------------------------------------------------------*/
+void MettreAJourValorisationPortefeuille() 
+{
+    int i;
+    struct valorisation valorisation;
+    FILE *f1;
+
+    tab_valorisation[index_portefeuille_tab_valorisation] = valorisation_portefeuille;
+
+    f1 = fopen(VALORISATION_FILE_NAME, "w");
+    fprintf(f1, "Portefeuille,Invesstissement,Frais d'ouverture,Titre detenue,Frais de courtage,Solde\n");
+    for(i = 0; i < nb_portefeuilles; i++)
+    {
+        valorisation = tab_valorisation[i];
+        fprintf(f1, "%s,%.2f,%d,%.2f,%.2f,%.2f\n", valorisation.proprietaire_portefeuille, valorisation.montant_investissement, valorisation.frais_ouverture, valorisation.somme_titres_detenus, valorisation.frais_courtage, valorisation.solde);
+    }
+    fclose(f1);
+}
+
