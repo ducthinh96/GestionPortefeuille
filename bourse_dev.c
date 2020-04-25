@@ -83,6 +83,7 @@ void VerificationOperationEnAttente();
 void ChargerValorisationPortefeuille();
 void MettreAJourValorisationPortefeuille();
 float CalculerNouvelleSolde(char type_operation, float prix, int quantite);
+void BienvenueMessage();
 
 /* Déclaration des variables globales */
 int nb_actions_portefeuille = 0;
@@ -109,6 +110,9 @@ struct valorisation valorisation_portefeuille;
 /*---------- Programme principale ----------*/
 int main()
 {   
+    // Afficher le message de bienvenue
+    BienvenueMessage();
+
     // Recupérer le cours de bourse
     GetCoursDeBourseFromCSV();
 
@@ -1004,7 +1008,7 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
 
     // Quand il s'agit de l'achat et la somme à payer va faire dépasser le montant de l'investissement
     // On s'arrete l'operation et retourne au menu des operation
-    if(type_operation == 'A' && nouveau_solde < 0)
+    if(type_operation == 'A' && nouveau_solde <= 0)
     {
         printf("Votre montant d'investissement sera depasse de %.2f €. La liquidité disponible sur votre portefeuille ne permet pas de conclure l'achat\n", -nouveau_solde);
         return;
@@ -1079,7 +1083,7 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
         }
         else
         {
-            strcpy(statut, "Echoue");
+            strcpy(statut, "Echec");
             printf("Quantité disponible insuffisante !\n");
         }
     }
@@ -1087,7 +1091,7 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
     { // VENTE
         if (index_action_recherche_portefeuille == NON_TROUVE)
         {
-            strcpy(statut, "Echoue");
+            strcpy(statut, "Echec");
             printf("Depuis Mardi 17 Mars 2020, l'AMF (Autorité des marché financiers) a interdit La vente à découvert sur 92 titres à la bourse de PARIS.\n");
         }
         else
@@ -1361,4 +1365,12 @@ void MettreAJourValorisationPortefeuille()
     }
     fclose(f1);
 }
-
+/*-----------------------------------------------------------*/
+void BienvenueMessage()
+{
+    printf("\n");
+    printf("======================================================================\n");
+    printf("========== Bonjour et Bienvenu sur le programme FrontEquity ==========\n");
+    printf("======================================================================\n");
+    printf("\n");
+}
