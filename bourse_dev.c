@@ -265,7 +265,7 @@ void chargement() // ask for person name not the file name
     {
         fgets(ligne, sizeof ligne, f1);
         retour = sscanf(ligne, "%[^,],%[^,],%[^,],%f,%d,%f", action.code_isin, action.symbole,action.nom_societe, &action.prix_achat_unit, &action.quantite, &action.seuil_declenchement);
-        if(retour != EOF)
+        if(retour != EOF && ligne[0] != '\0' && ligne[0] != '\n')
         {
             portefeuille[i++] = action;
         }
@@ -415,7 +415,7 @@ void GetCoursDeBourseFromCSV()
     {
         fgets(ligne, sizeof ligne, f1);
         retour = sscanf(ligne, "%[^,],%[^,],%[^,],%d,%f", action.code_isin, action.symbole, action.nom_societe, &action.quantite, &action.prix_achat_unit);
-        if(retour != EOF)
+        if(retour != EOF && ligne[0] != '\0' && ligne[0] != '\n')
         {
             cours_bourse[nb_actions_cours_bourse++] = action;
         }
@@ -484,6 +484,7 @@ void ChargerOperationEnAttente()
     int i;
     struct struct_action action;
     struct operation operation;
+    char ligne[1000];
     FILE *f1;
     int retour;
 
@@ -493,8 +494,9 @@ void ChargerOperationEnAttente()
     f1 = fopen(OPERATIONS_EN_ATTENTE_FILE_NAME, "r");
     while(!feof(f1))
     {
-        retour = fscanf(f1, "%[^,],%[^,],%[^,],%[^,],%[^,],%f,%d,%c\n", operation.date, operation.heure, operation.proprietaire_portefeuille, operation.action.symbole, operation.action.code_isin, &operation.action.prix_achat_unit, &operation.action.quantite, &operation.type_operation);
-        if(retour != EOF)
+        fgets(ligne, sizeof ligne, f1);
+        retour = sscanf(ligne, "%[^,],%[^,],%[^,],%[^,],%[^,],%f,%d,%c\n", operation.date, operation.heure, operation.proprietaire_portefeuille, operation.action.symbole, operation.action.code_isin, &operation.action.prix_achat_unit, &operation.action.quantite, &operation.type_operation);
+        if(retour != EOF && ligne[0] != '\0' && ligne[0] != '\n')
         {
             strcpy(operation.statut, "En_attente");
             operations_en_attente[i++] = operation;
@@ -602,7 +604,7 @@ void ChargerHistorique()
     {
         fgets(ligne, sizeof ligne, f1);
         retour = sscanf(ligne, "%[^,],%[^,],%[^,],%[^,],%[^,],%f,%d,%c,%s", operation.date, operation.heure, operation.proprietaire_portefeuille, operation.action.symbole, operation.action.code_isin, &operation.action.prix_achat_unit, &operation.action.quantite, &operation.type_operation, operation.statut);
-        if(retour != EOF)
+        if(retour != EOF && ligne[0] != '\0' && ligne[0] != '\n')
         {
             historique[i++] = operation;
         }
@@ -1327,7 +1329,7 @@ void ChargerValorisationPortefeuille()
     {
         fgets(ligne, sizeof ligne, f1);
         retour = sscanf(ligne, "%[^,],%f,%d,%f,%f,%f", valorisation.proprietaire_portefeuille, &valorisation.montant_investissement, &valorisation.frais_ouverture, &valorisation.somme_titres_detenus, &valorisation.frais_courtage, &valorisation.solde);
-        if(retour != EOF)
+        if(retour != EOF && ligne[0] != '\0' && ligne[0] != '\n')
         {
             if(strcmp(valorisation.proprietaire_portefeuille, NomPortefeuille) == 0)
             {
