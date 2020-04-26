@@ -48,11 +48,20 @@ struct valorisation
     float somme_titres_detenus;
     float frais_courtage;
     float solde;
+    char statut[30];
 };
-
+struct date
+{
+    int jour;
+    int mois;
+    int annee;
+};
 
 /*---------- Déclaration préliminaires ----------*/
 void MenuPortefeuille();
+void AfficherMenuSelonStatut();
+void MenuPrincipalPortefeuilleActif();
+void MenuPrincipalPortefeuilleCloture();
 void chargement();
 void MenuOperation();
 void OrdreAuMarche();
@@ -68,6 +77,7 @@ void MettreOperationEnAttente(struct struct_action action, float prix, int quant
 void ChargerOperationEnAttente();
 void AffichageCoursDeBourse();
 void ModificationCoursBourse();
+void CloturePortefeuille();
 void ChargerHistorique();
 void Sauvegarde();
 void EnregistrerDansLHistorique(struct struct_action action, float prix, int quantite, char type_operation, char *statut);
@@ -84,6 +94,10 @@ void ChargerValorisationPortefeuille();
 void MettreAJourValorisationPortefeuille();
 float CalculerNouvelleSolde(char type_operation, float prix, int quantite);
 void BienvenueMessage();
+int DateValide(struct date ma_date);
+int PortfeuilleDeCinqAns(struct date date_ouverture, struct date date_cloture);
+void VenteToutesActions();
+float CaclulerSommeVenteToutesActions();
 
 /* Déclaration des variables globales */
 int nb_actions_portefeuille = 0;
@@ -135,11 +149,30 @@ int main()
     // Afficher la date du jour
     printf("La date du jour est                   : %s\n\n", date_du_jour);
 
+    // Afficher le menu principal selon le statut du portefeuille
+    AfficherMenuSelonStatut();
+}
+/*---------- AfficherMenuSelonStatut ----------*/
+void AfficherMenuSelonStatut()
+{
+    if(strcmp(valorisation_portefeuille.statut, "Cloture") == 0)
+    {
+        MenuPrincipalPortefeuilleCloture();
+    }
+    else
+    {
+        MenuPrincipalPortefeuilleActif();
+    }
+    return;
+}
+/*---------- MenuPrincipalPortefeuilleActif ----------*/
+void MenuPrincipalPortefeuilleActif()
+{
     // Init choix
     int choix = -1;
 
     // Boucle du Menu Principal
-    while(choix != 0)
+    while(choix != 0 && strcmp(valorisation_portefeuille.statut, "Actif") == 0)
     {
         printf("================ MENU PRINCIPAL ================\n");
         printf("-1- Gestion de portefeuille\n");
@@ -183,7 +216,37 @@ int main()
         } // Fin du switch
     } // Fin du while
 }
+/*---------- MenuPrincipalPortefeuilleCloture ----------*/
+void MenuPrincipalPortefeuilleCloture()
+{
+    // Init choix
+    int choix = -1;
+    
+    // Boucle du Menu Principal
+    while(choix != 0)
+    {
+        printf("================ MENU PRINCIPAL - PORTEFEUILLE CLOTURE ================\n");
+        printf("-1- Affichage de l'historique\n");
+        printf("-0- Quitter l'application\n");
+        printf("Choix : ");
+        scanf("%d", &choix);
+        printf("==============================================\n");
 
+        switch (choix)
+        {
+            case 1:
+                AffichageHisotrique();
+                break;
+            case 0:
+                verif_sauvegarde();
+                printf("Au revoir !\n");
+                break;
+            default:
+                printf("Choix inconnu ! Veuillez réessayer...\n");
+                break;
+        } // Fin du switch
+    } // Fin du while
+}
 /*---------- Gestion de portefeuille ----------*/
 void MenuPortefeuille()
 {
@@ -203,9 +266,16 @@ void MenuPortefeuille()
         switch (choix)
         {
             case 0:
+                AfficherMenuSelonStatut();
                 break;
             case 1:
                 affichage();
+                break;
+            case 2:
+                Sauvegarde();
+                break;
+            case 3:
+                CloturePortefeuille();
                 break;
             default:
                 printf("Choix inconnu ! Veuillez réessayer...\n");
@@ -285,7 +355,7 @@ void affichage()
 {
     int i;
     struct struct_action action;
-
+    
     if(nb_actions_portefeuille == 0)
     {
         printf("Aucune action à afficher !\n");
@@ -718,22 +788,22 @@ void AlerteSeuilDeclenchement()
                 scanf("%c", &ConfirmationSeuilDeclenchement);
                 ConfirmationSeuilDeclenchement = toupper(ConfirmationSeuilDeclenchement);
 
-                // Si le gestionaire ne veut pas poursuivre avec le seuil de declenchement de l'action
-                // Operation 
-                // On continue la boucle pour verifier le seuil des autres actions
-                if (ConfirmationSeuilDeclenchement == 'N')
-                {
-                    EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, 0, '\0', "Abandonnee");
-                }
-                else
-                {
-                    AchatVente("ordre_seuil_declenchement", action_portefeuille.symbole, TYPE_OPERATION_NON_DEFINI, QUANTITE_NON_DEFINI);
-                }
-
                 if (ConfirmationSeuilDeclenchement != 'O' && ConfirmationSeuilDeclenchement != 'N')
                 {
                     printf("La réponse attendue est : O pour Oui, N pour Non\n");
                 }
+            }
+
+            // Si le gestionaire ne veut pas poursuivre avec le seuil de declenchement de l'action
+            // Operation 
+            // On continue la boucle pour verifier le seuil des autres actions
+            if (ConfirmationSeuilDeclenchement == 'N')
+            {
+                EnregistrerDansLHistorique(action_cours_bourse, action_cours_bourse.prix_achat_unit, 0, '\0', "Abandonnee");
+            }
+            else
+            {
+                AchatVente("ordre_seuil_declenchement", action_portefeuille.symbole, TYPE_OPERATION_NON_DEFINI, QUANTITE_NON_DEFINI);
             }
 
         }
@@ -920,7 +990,7 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
     }
 
     // Quand il s'agit d'une opération en attente, il faut prendre l'argument quantite_argument comme quantite_input
-    if(strcmp(type_ordre, "operation_en_attente") == 0)
+    if(strcmp(type_ordre, "operation_en_attente") == 0 || strcmp(type_ordre, "cloture") == 0)
     {
         // Le cas ou l'argument type_operation_argument est defini
         // Usage principal : pour effectuer une operation_en_attente
@@ -967,7 +1037,7 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
     if(type_operation != 'V' || index_action_recherche_portefeuille != NON_TROUVE)
     {
         // Quand il s'agit d'une opération en attente, il faut prendre l'argument quantite_argument comme quantite_input
-        if(strcmp(type_ordre, "operation_en_attente") == 0)
+        if(strcmp(type_ordre, "operation_en_attente") == 0 || strcmp(type_ordre, "cloture") == 0)
         {
             // Le cas ou l'argument quantite_argument est defini
             // Usage principal : pour effectuer une operation_en_attente
@@ -1018,7 +1088,7 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
             // 2, Pour l'ordre au seuil de declenchement : quand le seuil est atteint
             // 3, Pour l'ordre au cours de marche : pas de condition, l'operation est toujours acceptée
             // 4, Pour l'operation en attente (une fois qu'elle est passé ici): pas de condition, l'operation est toujours acceptée
-            if (Egal(prix_input, action_cours_bourse.prix_achat_unit) || strcmp(type_ordre, "ordre_au_marche") == 0 || strcmp(type_ordre, "ordre_seuil_declenchement") == 0 || strcmp(type_ordre, "operation_en_attente") == 0)
+            if (Egal(prix_input, action_cours_bourse.prix_achat_unit) || strcmp(type_ordre, "ordre_au_marche") == 0 || strcmp(type_ordre, "ordre_seuil_declenchement") == 0 || strcmp(type_ordre, "operation_en_attente") == 0 || strcmp(type_ordre, "cloture") == 0)
             {  
                 // Quand le prix correspond au prix du marché, l'opération sera exécutée
                 if (index_action_recherche_portefeuille == NON_TROUVE)
@@ -1053,7 +1123,6 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
                     cours_bourse[index_action_recherche_cours_bourse].quantite -= quantite_input;
                     printf("Achat de %d actions avec succès.\n", quantite_input);
                     strcpy(statut, "Reussi");
-                    affichage();
                 }
                 else
                 {
@@ -1065,7 +1134,6 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
                     cours_bourse[index_action_recherche_cours_bourse].quantite -= quantite_input;
                     printf("Achat de %d actions avec succès.\n", quantite_input);
                     strcpy(statut, "Reussi");
-                    affichage();
                 }
             }
             else
@@ -1096,7 +1164,7 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
             // 2, Pour l'ordre au seuil de declenchement : quand le seuil est atteint
             // 3, Pour l'ordre au cours de marche : pas de condition, l'operation est toujours acceptée
             // 4, Pour l'operation en attente (une fois qu'elle est passé ici): pas de condition, l'operation est toujours acceptée
-            if (Egal(prix_input, action_cours_bourse.prix_achat_unit) || strcmp(type_ordre, "ordre_au_marche") == 0 || strcmp(type_ordre, "ordre_seuil_declenchement") == 0 || strcmp(type_ordre, "operation_en_attente") == 0)
+            if (Egal(prix_input, action_cours_bourse.prix_achat_unit) || strcmp(type_ordre, "ordre_au_marche") == 0 || strcmp(type_ordre, "ordre_seuil_declenchement") == 0 || strcmp(type_ordre, "operation_en_attente") == 0 || strcmp(type_ordre, "cloture") == 0)
             {
                 // Quand le prix correspond au prix du marché, l'opération sera exécutée
                 if (action_portefeuille.quantite >= quantite_input)
@@ -1107,7 +1175,6 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
                     cours_bourse[index_action_recherche_cours_bourse].quantite += quantite_input;
                     printf("Vente de %d actions avec succès.\n", quantite_input);
                     strcpy(statut, "Reussi");
-                    affichage();
                 }
                 else
                 {
@@ -1138,7 +1205,6 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
                     action_portefeuille.quantite = 0;
                     portefeuille[index_action_recherche_portefeuille] = action_portefeuille;
                     strcpy(statut, "Reussi");
-                    affichage();
                 }
             }
             else
@@ -1172,6 +1238,7 @@ void AchatVente(char *type_ordre, char symbole_input[], char type_operation_argu
     // Modification de portefeuille => à sauvegarder
     if(strcmp(statut, "Reussi") == 0)
     {
+        affichage();
         a_sauvegarder = 1;
     }
 }
@@ -1209,6 +1276,7 @@ void Sauvegarde()
 {
     int i;
     FILE *f1;
+    struct struct_action action;
 
     // Ouvrir le fichier en mode "Ecriture"
     f1 = fopen(NomFichierPortefeuille, "w");
@@ -1219,12 +1287,16 @@ void Sauvegarde()
     // Boucle de sauvegarde
     for(i = 0; i < nb_actions_portefeuille; i++)
     {
-        fprintf(f1, "%s,%s,%s,%.2f,%d,%.2f\n", portefeuille[i].code_isin, portefeuille[i].symbole,portefeuille[i].nom_societe, portefeuille[i].prix_achat_unit, portefeuille[i].quantite, portefeuille[i].seuil_declenchement);
+        action = portefeuille[i];
+        if(action.quantite != 0)
+        {
+            fprintf(f1, "%s,%s,%s,%.2f,%d,%.2f\n", action.code_isin, action.symbole,action.nom_societe, action.prix_achat_unit, action.quantite, action.seuil_declenchement);
+        }
     }
     fclose(f1);
 
     // Confirmation
-    printf("%d lignes sauvegardées !\n", i);
+    printf("%d lignes modifiées !\n", i);
 }
 /*---------- Verification des operation en attente ----------*/
 void VerificationOperationEnAttente()
@@ -1328,7 +1400,7 @@ void ChargerValorisationPortefeuille()
     {
         if (fgets(ligne, sizeof ligne, f1))
         {
-            retour = sscanf(ligne, "%[^,],%f,%d,%f,%f,%f", valorisation.proprietaire_portefeuille, &valorisation.montant_investissement, &valorisation.frais_ouverture, &valorisation.somme_titres_detenus, &valorisation.frais_courtage, &valorisation.solde);
+            retour = sscanf(ligne, "%[^,],%f,%d,%f,%f,%f,%s", valorisation.proprietaire_portefeuille, &valorisation.montant_investissement, &valorisation.frais_ouverture, &valorisation.somme_titres_detenus, &valorisation.frais_courtage, &valorisation.solde, valorisation.statut);
             if (retour != EOF && ligne[0] != '\0' && ligne[0] != '\n')
             {
                 if (strcmp(valorisation.proprietaire_portefeuille, NomPortefeuille) == 0)
@@ -1354,11 +1426,11 @@ void MettreAJourValorisationPortefeuille()
     tab_valorisation[index_portefeuille_tab_valorisation] = valorisation_portefeuille;
 
     f1 = fopen(VALORISATION_FILE_NAME, "w");
-    fprintf(f1, "Portefeuille,Invesstissement,Frais d'ouverture,Titre detenue,Frais de courtage,Solde\n");
+    fprintf(f1, "Portefeuille,Invesstissement,Frais d'ouverture,Titre detenue,Frais de courtage,Solde,Staut\n");
     for(i = 0; i < nb_portefeuilles; i++)
     {
         valorisation = tab_valorisation[i];
-        fprintf(f1, "%s,%.2f,%d,%.2f,%.2f,%.2f\n", valorisation.proprietaire_portefeuille, valorisation.montant_investissement, valorisation.frais_ouverture, valorisation.somme_titres_detenus, valorisation.frais_courtage, valorisation.solde);
+        fprintf(f1, "%s,%.2f,%d,%.2f,%.2f,%.2f,%s\n", valorisation.proprietaire_portefeuille, valorisation.montant_investissement, valorisation.frais_ouverture, valorisation.somme_titres_detenus, valorisation.frais_courtage, valorisation.solde, valorisation.statut);
     }
     fclose(f1);
 }
@@ -1372,4 +1444,246 @@ void BienvenueMessage()
     printf("\n");
 }
 /*-----------------------------------------------------------*/
+int DateValide(struct date ma_date)
+{
+    // Retourner 1 si la date est valide
+    // Retourner 0 si la date n'est pas valide
 
+    int date_valide = 0;
+    int nb_jours_dans_1_mois;
+
+    // Verifier si le mois et annee est valide et le jour est superieur ou egale 1
+    if((ma_date.annee >= 0 && ma_date.annee <= 9999) && (ma_date.mois >=1 && ma_date.mois <= 12) && (ma_date.jour >= 1))
+    {
+        // Mois fevrier
+        if(ma_date.mois == 2)
+        {
+            // Annee bissextile
+            if((ma_date.annee%4 == 0 && ma_date.annee%100 != 0) || (ma_date.annee%400 == 0))
+            {
+                nb_jours_dans_1_mois = 29;
+            }
+            else
+            {
+                nb_jours_dans_1_mois = 28;
+            }
+        }
+        else
+        {
+            if (ma_date.mois == 1 || ma_date.mois == 3 || ma_date.mois == 5 || ma_date.mois == 7 || ma_date.mois == 8 || ma_date.mois == 10 || ma_date.mois == 12)
+            {
+                nb_jours_dans_1_mois = 31;
+            }
+            else
+            {
+                nb_jours_dans_1_mois = 30;
+            }
+        }
+
+        if(ma_date.jour <= nb_jours_dans_1_mois)
+        {
+            date_valide = 1;
+        }
+        else
+        {
+            date_valide = 0;
+        }
+    }
+    else
+    {
+        date_valide = 0;
+    }
+    
+    return date_valide;
+}
+/*------------- Verifier si le portefuille a plus de 5 ans ------------------*/
+int PortfeuilleDeCinqAns(struct date date_ouverture, struct date date_cloture)
+{
+    int portefeuille_de_5_ans = 0;
+
+    if(date_cloture.annee - date_ouverture.annee < 5)
+    {
+        portefeuille_de_5_ans = 0;
+    }
+    else
+    {
+        if(date_cloture.annee - date_ouverture.annee == 5)
+        {
+            // Portfeuille a 5 ans
+
+            if(date_cloture.mois >= date_ouverture.mois)
+            {
+                if(date_cloture.mois == date_ouverture.mois)
+                {
+                    if(date_cloture.jour >= date_ouverture.jour)
+                    {
+                        portefeuille_de_5_ans = 1;
+                    }
+                    else
+                    {
+                        portefeuille_de_5_ans = 0;
+                    }
+                }
+                else
+                {
+                    // date_cloture.mois > date_ouverture.mois
+                    portefeuille_de_5_ans = 1;
+                }
+            }
+            else
+            {
+                // Si le mois de la date de cloture est inferireur de celui de la date d'ouverture
+                portefeuille_de_5_ans = 0;
+            }
+        }
+        else
+        {
+            // Portfeuille de 5 ans et plus
+            portefeuille_de_5_ans = 1;
+        }
+    }
+
+    return portefeuille_de_5_ans;
+}
+/*------------- Vente de toutes les actions------------------*/
+void VenteToutesActions()
+{
+    int i, index_recherche_cours_bourse;
+    struct struct_action action_portefeuille;
+    struct struct_action action_cours_bourse;
+
+    for(i = 0; i < nb_actions_portefeuille; i++)
+    {
+        action_portefeuille = portefeuille[i];
+
+        printf("Action                                : %s\n", action_portefeuille.symbole);
+        AchatVente("cloture", action_portefeuille.symbole, 'V', action_portefeuille.quantite);
+    }
+}
+/*------------- Calculer la somme de la vente de toutes les actions du portefeuilles ------------------*/
+float CaclulerSommeVenteToutesActions()
+{
+    // Somme avec le frais de courtage inclu 
+
+    int i, index_recherche_cours_bourse;
+    float somme_des_ventes = 0;
+    float somme_frais_courtage = 0;
+    float frais_courtage_pourcentage = 0;
+    struct struct_action action_portefeuille;
+    struct struct_action action_cours_bourse;
+
+    if(strcmp(PortefeuilleType, "PEA") == 0)
+    {
+        // 0.5% pour PEA
+        frais_courtage_pourcentage = 0.005;
+    }
+    else
+    {
+        // 0.4% pour PEA
+        frais_courtage_pourcentage = 0.004;
+    }
+
+    for(i = 0; i < nb_actions_portefeuille; i++)
+    {
+        action_portefeuille = portefeuille[i];
+
+        index_recherche_cours_bourse = RechercheAction(action_portefeuille.symbole, cours_bourse, "cours_bourse");
+        action_cours_bourse = cours_bourse[index_recherche_cours_bourse];
+
+        somme_des_ventes += action_cours_bourse.prix_achat_unit * action_portefeuille.quantite;
+
+        somme_frais_courtage += (action_cours_bourse.prix_achat_unit * action_portefeuille.quantite) * frais_courtage_pourcentage;
+    }
+    return (somme_des_ventes - somme_frais_courtage);
+}
+/*------------- Cloture du portefeuille ------------------*/
+void CloturePortefeuille()
+{
+    int retour = 0;
+    int portefeuille_de_5_ans = 0;
+    float nouveau_solde = 0;
+    float taux_impot = 0;
+    float montant_impot = 0;
+    float gain_net = 0;
+    char ConfirmationCloture;
+    struct date date_cloture;
+    struct date date_ouverture;
+
+    // Init date du jour
+    sscanf(date_du_jour, "%d/%d/%d", &date_cloture.jour, &date_cloture.mois, &date_cloture.annee);
+
+    // Inir date d'ouverture
+    date_ouverture.jour = 0;
+    date_ouverture.mois = 0;
+    date_ouverture.annee = 0;
+    
+    printf("================ CLOTURE DU PORTEFEUILLE ================\n");
+    printf("Date du jour                                  : %s\n", date_du_jour);
+    while(retour != 3 || !DateValide(date_ouverture))
+    {
+        printf("Date d'ouverture du portefeuille (JJ/MM/AAAA) : ");
+        while(getchar() != '\n');
+        retour = scanf("%d/%d/%d", &date_ouverture.jour, &date_ouverture.mois, &date_ouverture.annee);
+        // Si retour != 3, ça veut dire qu'on n'arrive pas à lire correctement la date
+        // retour = 3 => Reussi à affecter 3 variables : date_ouverture.jour, date_ouverture.mois, date_ouverture.annee
+        if(retour != 3 || !DateValide(date_ouverture))
+        {
+            printf("La date saisie n'est pas valide. Veuillez réessayer...\n");
+        }
+    }
+
+    // Afficher la somme de la vente de toutes les actions
+    printf("Investissement                      : %.2f €\n", valorisation_portefeuille.montant_investissement);
+    nouveau_solde = valorisation_portefeuille.solde + CaclulerSommeVenteToutesActions();
+    printf("Nouveau solde apres la cloture      : %.2f €\n", nouveau_solde);
+
+    // Calculer le gain net
+    gain_net = nouveau_solde - valorisation_portefeuille.montant_investissement;
+    printf("Gain brut                           : %.2f €\n", gain_net);
+
+    // Calculer le taux et le montant d'imposition
+    portefeuille_de_5_ans = PortfeuilleDeCinqAns(date_ouverture, date_cloture);
+    if((strcmp(PortefeuilleType, "PEA") == 0 && !portefeuille_de_5_ans) || (strcmp(PortefeuilleType, "COMPTE_TITRE") == 0))
+    {
+        // Taux d'impot est 30% sur le gain net si :
+        // 1, Il s'agit d'un PEA et le portefeuille a moins de 5 ans
+        // 2, Il s'agit d'un compte titre
+        taux_impot = 0.3;
+    }
+    else
+    {
+        taux_impot = 0.172;
+    }
+    printf("Taux d'imposition sur le gain net   : %.2f %%\n", taux_impot*100);
+
+    // Calculer le montant d'imposition
+    montant_impot = gain_net * taux_impot;
+    printf("Montant d'imposition                : %.2f €\n", montant_impot);
+
+    // Demande de confirmation
+    ConfirmationCloture = '\0';
+    while(ConfirmationCloture != 'O' && ConfirmationCloture != 'N')
+    {
+        printf("Souhaitez-vous poursuivre avec la cloture ? (O pour Oui, N pour Non) : ");
+        while (getchar() != '\n');
+        scanf("%c", &ConfirmationCloture);
+        ConfirmationCloture = toupper(ConfirmationCloture);
+        if(ConfirmationCloture != 'O' && ConfirmationCloture != 'N')
+        {
+            printf("La réponse attendue est : O pour Oui, N pour Non\n");
+        }
+    }
+
+    if (ConfirmationCloture == 'N')
+    {
+        printf("Opération abandonnée...\n");
+        return;
+    }
+    
+    VenteToutesActions();
+    strcpy(valorisation_portefeuille.statut, "Cloture");
+    valorisation_portefeuille.somme_titres_detenus = 0;
+    valorisation_portefeuille.frais_courtage = 0;
+    valorisation_portefeuille.solde = 0;
+    MettreAJourValorisationPortefeuille();
+}
