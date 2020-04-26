@@ -1,0 +1,14 @@
+- Fichier Historique : DONE
+    - Le nombre d'opérations effectuées de chaque portefeuille 
+        => pour calculer le frais de courtage.
+
+- La liquidité : valeur au départ du portefeuille (ne pas dépasser 150k pour PEA)
+    => Solution : Création un fichier pour stocker la liquidité de chaque portefeuille
+
+- Modification le cours de bourse : Juste le prix : DONE
+    => Une fois modifié, si une opération est matché => Confirmation => O/N (O = Passer, N = Anunler) il faut mettre un message : Opération X est passée.
+    => Cette vérification est déjà intégrée dans la fonction seuil de déclenchement
+    
+- Calculer et annoncer le montant de l'achat et de la vente : DONE
+    => La formule à revoir : somme = prix * quantite 
+    => Faut-il additionner le frais de courtage ?

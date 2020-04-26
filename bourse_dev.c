@@ -1641,25 +1641,33 @@ void CloturePortefeuille()
     gain_net = nouveau_solde - valorisation_portefeuille.montant_investissement;
     printf("Gain brut                           : %.2f €\n", gain_net);
 
-    // Calculer le taux et le montant d'imposition
-    portefeuille_de_5_ans = PortfeuilleDeCinqAns(date_ouverture, date_cloture);
-    if((strcmp(PortefeuilleType, "PEA") == 0 && !portefeuille_de_5_ans) || (strcmp(PortefeuilleType, "COMPTE_TITRE") == 0))
+    // Si le gain_net > 0, les impôts s'appliquent
+    if(gain_net > 0)
     {
-        // Taux d'impot est 30% sur le gain net si :
-        // 1, Il s'agit d'un PEA et le portefeuille a moins de 5 ans
-        // 2, Il s'agit d'un compte titre
-        taux_impot = 0.3;
+        // Calculer le taux et le montant d'imposition
+        portefeuille_de_5_ans = PortfeuilleDeCinqAns(date_ouverture, date_cloture);
+        if((strcmp(PortefeuilleType, "PEA") == 0 && !portefeuille_de_5_ans) || (strcmp(PortefeuilleType, "COMPTE_TITRE") == 0))
+        {
+            // Taux d'impot est 30% sur le gain net si :
+            // 1, Il s'agit d'un PEA et le portefeuille a moins de 5 ans
+            // 2, Il s'agit d'un compte titre
+            taux_impot = 0.3;
+        }
+        else
+        {
+            taux_impot = 0.172;
+        }
+        printf("Taux d'imposition sur le gain net   : %.2f %%\n", taux_impot*100);
+
+        // Calculer le montant d'imposition
+        montant_impot = gain_net * taux_impot;
+        printf("Montant d'imposition                : %.2f €\n", montant_impot);
     }
     else
-    {
-        taux_impot = 0.172;
+    {   
+        printf("Montant d'imposition                : 0 €\n");
     }
-    printf("Taux d'imposition sur le gain net   : %.2f %%\n", taux_impot*100);
-
-    // Calculer le montant d'imposition
-    montant_impot = gain_net * taux_impot;
-    printf("Montant d'imposition                : %.2f €\n", montant_impot);
-
+    
     // Demande de confirmation
     ConfirmationCloture = '\0';
     while(ConfirmationCloture != 'O' && ConfirmationCloture != 'N')
