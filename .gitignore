@@ -3,3 +3,6 @@ bourse.c
 .vscode
 bourse.dSYM
 bourse_dev.dSYM
+a.out
+bourse
+bourse_dev
