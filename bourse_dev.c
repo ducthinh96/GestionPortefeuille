@@ -59,9 +59,7 @@ struct date
 
 /*---------- Déclaration préliminaires ----------*/
 void MenuPortefeuille();
-void AfficherMenuSelonStatut();
-void MenuPrincipalPortefeuilleActif();
-void MenuPrincipalPortefeuilleCloture();
+void MenuPrincipal();
 void chargement();
 void MenuOperation();
 void OrdreAuMarche();
@@ -92,6 +90,7 @@ void MettreAJourDesOperationsEnAttente();
 void VerificationOperationEnAttente();
 void ChargerValorisationPortefeuille();
 void MettreAJourValorisationPortefeuille();
+void AffichageValorisationPortefeuille();
 float CalculerNouvelleSolde(char type_operation, float prix, int quantite);
 void BienvenueMessage();
 int DateValide(struct date ma_date);
@@ -150,102 +149,88 @@ int main()
     printf("La date du jour est                   : %s\n\n", date_du_jour);
 
     // Afficher le menu principal selon le statut du portefeuille
-    AfficherMenuSelonStatut();
+    MenuPrincipal();
 }
-/*---------- AfficherMenuSelonStatut ----------*/
-void AfficherMenuSelonStatut()
+/*---------- MenuPrincipal ----------*/
+void MenuPrincipal()
 {
-    if(strcmp(valorisation_portefeuille.statut, "Cloture") == 0)
+    // Init choix
+    int choix = -1;
+
+    if(strcmp(valorisation_portefeuille.statut, "Actif") == 0)
     {
-        MenuPrincipalPortefeuilleCloture();
+        // Boucle du Menu Principal
+        while(choix != 0)
+        {
+            printf("================ MENU PRINCIPAL ================\n");
+            printf("-1- Gestion de portefeuille\n");
+            printf("-2- Menu des operations\n");
+            printf("-3- Affichage du cours de bourse\n");
+            printf("-4- Modification du cours de bourse\n");
+            printf("-5- Affichage des operation en attente\n");
+            printf("-6- Affichage de l'historique\n");
+            printf("-0- Quitter l'application\n");
+            printf("Choix : ");
+            scanf("%d", &choix);
+            printf("==============================================\n");
+
+            switch (choix)
+            {
+                case 1:
+                    MenuPortefeuille();
+                    break; 
+                case 2:
+                    MenuOperation();
+                    break;
+                case 3:
+                    AffichageCoursDeBourse();
+                    break;
+                case 4:
+                    ModificationCoursBourse();
+                    break;
+                case 5:
+                    AfficherOperationsEnAttente();
+                    break;
+                case 6:
+                    AffichageHisotrique();
+                    break;
+                case 0:
+                    verif_sauvegarde();
+                    printf("Au revoir !\n");
+                    break;
+                default:
+                    printf("Choix inconnu ! Veuillez réessayer...\n");
+                    break;
+            } // Fin du switch
+        } // Fin du while
     }
     else
     {
-        MenuPrincipalPortefeuilleActif();
+        // Boucle du Menu Principal
+        while(choix != 0)
+        {
+            printf("================ MENU PRINCIPAL - PORTEFEUILLE CLOTURE ================\n");
+            printf("-1- Affichage de l'historique\n");
+            printf("-0- Quitter l'application\n");
+            printf("Choix : ");
+            scanf("%d", &choix);
+            printf("==============================================\n");
+
+            switch (choix)
+            {
+                case 1:
+                    AffichageHisotrique();
+                    break;
+                case 0:
+                    verif_sauvegarde();
+                    printf("Au revoir !\n");
+                    break;
+                default:
+                    printf("Choix inconnu ! Veuillez réessayer...\n");
+                    break;
+            } // Fin du switch
+        } // Fin du while
     }
-    return;
-}
-/*---------- MenuPrincipalPortefeuilleActif ----------*/
-void MenuPrincipalPortefeuilleActif()
-{
-    // Init choix
-    int choix = -1;
-
-    // Boucle du Menu Principal
-    while(choix != 0 && strcmp(valorisation_portefeuille.statut, "Actif") == 0)
-    {
-        printf("================ MENU PRINCIPAL ================\n");
-        printf("-1- Gestion de portefeuille\n");
-        printf("-2- Menu des operations\n");
-        printf("-3- Affichage du cours de bourse\n");
-        printf("-4- Modification du cours de bourse\n");
-        printf("-5- Affichage des operation en attente\n");
-        printf("-6- Affichage de l'historique\n");
-        printf("-0- Quitter l'application\n");
-        printf("Choix : ");
-        scanf("%d", &choix);
-        printf("==============================================\n");
-
-        switch (choix)
-        {
-            case 1:
-                MenuPortefeuille();
-                break; 
-            case 2:
-                MenuOperation();
-                break;
-            case 3:
-                AffichageCoursDeBourse();
-                break;
-            case 4:
-                ModificationCoursBourse();
-                break;
-            case 5:
-                AfficherOperationsEnAttente();
-                break;
-            case 6:
-                AffichageHisotrique();
-                break;
-            case 0:
-                verif_sauvegarde();
-                printf("Au revoir !\n");
-                break;
-            default:
-                printf("Choix inconnu ! Veuillez réessayer...\n");
-                break;
-        } // Fin du switch
-    } // Fin du while
-}
-/*---------- MenuPrincipalPortefeuilleCloture ----------*/
-void MenuPrincipalPortefeuilleCloture()
-{
-    // Init choix
-    int choix = -1;
-    
-    // Boucle du Menu Principal
-    while(choix != 0)
-    {
-        printf("================ MENU PRINCIPAL - PORTEFEUILLE CLOTURE ================\n");
-        printf("-1- Affichage de l'historique\n");
-        printf("-0- Quitter l'application\n");
-        printf("Choix : ");
-        scanf("%d", &choix);
-        printf("==============================================\n");
-
-        switch (choix)
-        {
-            case 1:
-                AffichageHisotrique();
-                break;
-            case 0:
-                verif_sauvegarde();
-                printf("Au revoir !\n");
-                break;
-            default:
-                printf("Choix inconnu ! Veuillez réessayer...\n");
-                break;
-        } // Fin du switch
-    } // Fin du while
 }
 /*---------- Gestion de portefeuille ----------*/
 void MenuPortefeuille()
@@ -258,6 +243,7 @@ void MenuPortefeuille()
         printf("-1- Affichage\n");
         printf("-2- Sauvegarde\n");
         printf("-3- Clôture\n");
+        printf("-4- Valorisation\n");
         printf("-0- Revenir au menu principal\n");
         printf("Choix : ");
         scanf("%d", &choix);
@@ -265,9 +251,6 @@ void MenuPortefeuille()
 
         switch (choix)
         {
-            case 0:
-                AfficherMenuSelonStatut();
-                break;
             case 1:
                 affichage();
                 break;
@@ -276,6 +259,11 @@ void MenuPortefeuille()
                 break;
             case 3:
                 CloturePortefeuille();
+                break;
+            case 4:
+                AffichageValorisationPortefeuille();
+                break;
+            case 0:
                 break;
             default:
                 printf("Choix inconnu ! Veuillez réessayer...\n");
@@ -1433,6 +1421,16 @@ void MettreAJourValorisationPortefeuille()
         fprintf(f1, "%s,%.2f,%d,%.2f,%.2f,%.2f,%s\n", valorisation.proprietaire_portefeuille, valorisation.montant_investissement, valorisation.frais_ouverture, valorisation.somme_titres_detenus, valorisation.frais_courtage, valorisation.solde, valorisation.statut);
     }
     fclose(f1);
+}
+/*-----------------------------------------------------------*/
+void AffichageValorisationPortefeuille() 
+{
+    printf("============================================================== VALORISATION ============================================================================\n");
+    printf("========================================================================================================================================================\n");
+    printf("|%-30s |%-15s |%-20s |%-20s |%-20s |%-20s |%-12s |\n", "Portefeuille","Invesstissement","Frais d'ouverture","Titre detenue","Frais de courtage","Solde","Staut");
+    printf("========================================================================================================================================================\n");
+    printf("|%-30s |%-15.2f |%-20d |%-20.2f |%-20.2f |%-20.2f |%-12s |\n", valorisation_portefeuille.proprietaire_portefeuille, valorisation_portefeuille.montant_investissement, valorisation_portefeuille.frais_ouverture, valorisation_portefeuille.somme_titres_detenus, valorisation_portefeuille.frais_courtage, valorisation_portefeuille.solde, valorisation_portefeuille.statut);
+    printf("========================================================================================================================================================\n");
 }
 /*-----------------------------------------------------------*/
 void BienvenueMessage()
