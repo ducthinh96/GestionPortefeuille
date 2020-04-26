@@ -1,0 +1,5 @@
+*.txt
+bourse.c
+.vscode
+bourse.dSYM
+bourse_dev.dSYM
