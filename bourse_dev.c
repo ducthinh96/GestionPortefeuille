@@ -99,6 +99,7 @@ void VenteToutesActions();
 float CaclulerSommeVenteToutesActions();
 
 /* Déclaration des variables globales */
+int quitter = 0;
 int nb_actions_portefeuille = 0;
 int nb_actions_cours_bourse = 0;
 int nb_operations_en_attente  = 0;
@@ -160,7 +161,7 @@ void MenuPrincipal()
     if(strcmp(valorisation_portefeuille.statut, "Actif") == 0)
     {
         // Boucle du Menu Principal
-        while(choix != 0)
+        while(choix != 0 && strcmp(valorisation_portefeuille.statut, "Actif") == 0)
         {
             printf("================ MENU PRINCIPAL ================\n");
             printf("-1- Gestion de portefeuille\n");
@@ -264,6 +265,7 @@ void MenuPortefeuille()
                 AffichageValorisationPortefeuille();
                 break;
             case 0:
+                MenuPrincipal();
                 break;
             default:
                 printf("Choix inconnu ! Veuillez réessayer...\n");
