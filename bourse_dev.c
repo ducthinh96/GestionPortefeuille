@@ -161,7 +161,7 @@ void MenuPrincipal()
     if(strcmp(valorisation_portefeuille.statut, "Actif") == 0)
     {
         // Boucle du Menu Principal
-        while(choix != 0 && strcmp(valorisation_portefeuille.statut, "Actif") == 0)
+        while(choix != 0 && !quitter)
         {
             printf("================ MENU PRINCIPAL ================\n");
             printf("-1- Gestion de portefeuille\n");
@@ -196,6 +196,7 @@ void MenuPrincipal()
                     AffichageHisotrique();
                     break;
                 case 0:
+                    quitter = 1;
                     verif_sauvegarde();
                     printf("Au revoir !\n");
                     break;
@@ -208,7 +209,7 @@ void MenuPrincipal()
     else
     {
         // Boucle du Menu Principal
-        while(choix != 0)
+        while(choix != 0 && !quitter)
         {
             printf("================ MENU PRINCIPAL - PORTEFEUILLE CLOTURE ================\n");
             printf("-1- Affichage de l'historique\n");
@@ -223,6 +224,7 @@ void MenuPrincipal()
                     AffichageHisotrique();
                     break;
                 case 0:
+                    quitter = 1;
                     verif_sauvegarde();
                     printf("Au revoir !\n");
                     break;
